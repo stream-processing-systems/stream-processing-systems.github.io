@@ -1,0 +1,17 @@
+# Stream Processing
+
+> A course on stream processing. Articles in English and Russian; each link is the Markdown source of one article.
+
+## English
+
+- [Course map](https://stream-processing-systems.github.io/en/course.md): all articles in reading order
+- [Why stream processing?](https://stream-processing-systems.github.io/en/course/introduction/why-stream-processing.md)
+- [What does an event tell us?](https://stream-processing-systems.github.io/en/course/fundamentals/what-an-event-tells-us.md)
+- [From events to results](https://stream-processing-systems.github.io/en/course/fundamentals/from-events-to-results.md)
+
+## Русский
+
+- [Карта курса](https://stream-processing-systems.github.io/ru/course.md): все статьи в порядке чтения
+- [Зачем нужна потоковая обработка?](https://stream-processing-systems.github.io/ru/course/introduction/why-stream-processing.md)
+- [Что сообщает событие?](https://stream-processing-systems.github.io/ru/course/fundamentals/what-an-event-tells-us.md)
+- [От событий к результату](https://stream-processing-systems.github.io/ru/course/fundamentals/from-events-to-results.md)
