@@ -8,6 +8,8 @@
 - [Why stream processing?](https://stream-processing-systems.github.io/en/course/introduction/why-stream-processing.md)
 - [What does an event tell us?](https://stream-processing-systems.github.io/en/course/fundamentals/what-an-event-tells-us.md)
 - [From events to results](https://stream-processing-systems.github.io/en/course/fundamentals/from-events-to-results.md)
+- [When one event is not enough](https://stream-processing-systems.github.io/en/course/fundamentals/when-one-event-is-not-enough.md)
+- [Keeping each order's story together](https://stream-processing-systems.github.io/en/course/fundamentals/keeping-each-orders-story-together.md)
 
 ## Русский
 
@@ -15,3 +17,5 @@
 - [Зачем нужна потоковая обработка?](https://stream-processing-systems.github.io/ru/course/introduction/why-stream-processing.md)
 - [Что сообщает событие?](https://stream-processing-systems.github.io/ru/course/fundamentals/what-an-event-tells-us.md)
 - [От событий к результату](https://stream-processing-systems.github.io/ru/course/fundamentals/from-events-to-results.md)
+- [Когда одного события недостаточно](https://stream-processing-systems.github.io/ru/course/fundamentals/when-one-event-is-not-enough.md)
+- [Как сохранить историю каждого заказа](https://stream-processing-systems.github.io/ru/course/fundamentals/keeping-each-orders-story-together.md)

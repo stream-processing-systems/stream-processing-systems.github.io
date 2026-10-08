@@ -12,3 +12,5 @@
 
 2. [Что сообщает событие?](https://stream-processing-systems.github.io/ru/course/fundamentals/what-an-event-tells-us.md): Что содержит полезная запись о событии и чем событие отличается от команды и текущего состояния.
 3. [От событий к результату](https://stream-processing-systems.github.io/ru/course/fundamentals/from-events-to-results.md): Как источник, фильтр, преобразование и приёмник превращают поток разных событий в один результат.
+4. [Когда одного события недостаточно](https://stream-processing-systems.github.io/ru/course/fundamentals/when-one-event-is-not-enough.md): Почему некоторые результаты зависят от предыдущих событий и что обработчик хранит между ними.
+5. [Как сохранить историю каждого заказа](https://stream-processing-systems.github.io/ru/course/fundamentals/keeping-each-orders-story-together.md): Как ключ разделяет память о заказах, когда события многих заказов приходят вперемешку.
