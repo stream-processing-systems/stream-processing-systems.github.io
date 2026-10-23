@@ -5,7 +5,7 @@
 Source: https://stream-processing-systems.github.io/en/course/fundamentals/from-events-to-results/
 
 In our grocery service, each change to an order is recorded as an
-[event](https://stream-processing-systems.github.io/en/course/fundamentals/what-an-event-tells-us.md). At the store, the courier desk needs to know
+[event](https://stream-processing-systems.github.io/en/course/fundamentals/what-does-an-event-tell-us.md). At the store, the courier desk needs to know
 when an order is packed, so that a courier can collect it. The order's events
 also include proposals, answers, and deliveries. Sending all of them to the desk
 would bury the one fact it needs. How do we turn a flow of mixed events into the
@@ -22,7 +22,7 @@ For order `ord-1042`, the source provides seven events, from `order_placed` at
 10:00 to `order_delivered` at 10:25. Only one of them matters to the courier
 desk.
 
-## Keep only the packing events
+## Keep only the events you need
 
 The first step is a **filter**. It asks one question about each record: is its
 `event_type` equal to `order_packed`? If yes, the record moves on. If not, the

@@ -5,7 +5,7 @@
 Source: https://stream-processing-systems.github.io/ru/course/fundamentals/from-events-to-results/
 
 В нашем сервисе доставки каждое изменение заказа записывается как
-[событие](https://stream-processing-systems.github.io/ru/course/fundamentals/what-an-event-tells-us.md) (event). В магазине сотрудникам стойки
+[событие](https://stream-processing-systems.github.io/ru/course/fundamentals/what-does-an-event-tell-us.md) (event). В магазине сотрудникам стойки
 выдачи заказов нужно знать, когда заказ упакован, чтобы курьер мог его забрать.
 Но среди событий заказа есть ещё предложения, ответы и доставки. Если отправлять
 стойке их все, единственный нужный ей факт потеряется среди остальных. Как
@@ -21,7 +21,7 @@ Source: https://stream-processing-systems.github.io/ru/course/fundamentals/from-
 Для заказа `ord-1042` источник выдаёт семь событий: от `order_placed` в 10:00 до
 `order_delivered` в 10:25. Для стойки выдачи важно только одно из них.
 
-## Оставить только события об упаковке
+## Оставить только нужные события
 
 Первый шаг — **фильтр (filter)**. Он задаёт каждой записи один вопрос: равен ли
 её `event_type` значению `order_packed`? Если да, запись идёт дальше. Если нет,

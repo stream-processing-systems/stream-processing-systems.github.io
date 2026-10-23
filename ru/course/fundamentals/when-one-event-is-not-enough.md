@@ -64,7 +64,7 @@ Source: https://stream-processing-systems.github.io/ru/course/fundamentals/when-
 
 По своей природе этот результат отличается от ленты стойки выдачи. Лента
 сообщает, что произошло. Список ожидающих показывает
-[текущее состояние](https://stream-processing-systems.github.io/ru/course/fundamentals/what-an-event-tells-us.md)
+[текущее состояние](https://stream-processing-systems.github.io/ru/course/fundamentals/what-does-an-event-tell-us.md)
 (current state): какие заказы ждут ответа
 прямо сейчас. Обработчик держит у себя свою копию этого ответа, чтобы вычислить
 следующее изменение. Эта память может быть переменной в работающей программе или

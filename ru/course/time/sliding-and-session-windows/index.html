@@ -1,0 +1,408 @@
+<!DOCTYPE html><html lang="ru" dir="ltr" data-theme="dark" data-has-toc data-has-sidebar class="astro-g5ptsecz"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/><title>Скользящие и сеансовые окна | Потоковая обработка</title><link rel="canonical" href="https://stream-processing-systems.github.io/ru/course/time/sliding-and-session-windows/"/><link rel="alternate" hreflang="en" href="https://stream-processing-systems.github.io/en/course/time/sliding-and-session-windows/"/><link rel="alternate" hreflang="ru" href="https://stream-processing-systems.github.io/ru/course/time/sliding-and-session-windows/"/><link rel="alternate" hreflang="x-default" href="https://stream-processing-systems.github.io/en/course/time/sliding-and-session-windows/"/><link rel="sitemap" href="/sitemap-index.xml"/><link rel="apple-touch-icon" href="/apple-touch-icon.png"/><link rel="icon" href="/favicon.ico" sizes="32x32"/><link rel="manifest" href="/manifest.webmanifest"/><script src="/article-widgets.js" defer></script><script src="/course-progress.js" defer></script><script async src="https://www.googletagmanager.com/gtag/js?id=G-C0KBX4XM6J"></script><script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','G-C0KBX4XM6J');</script><script src="/language-preference.js" defer></script><link rel="shortcut icon" href="/favicon-32.png" type="image/png"/><meta name="generator" content="Astro v7.3.5"/><meta name="generator" content="Starlight v0.42.5"/><meta property="og:title" content="Скользящие и сеансовые окна"/><meta property="og:type" content="article"/><meta property="og:url" content="https://stream-processing-systems.github.io/ru/course/time/sliding-and-session-windows/"/><meta property="og:locale" content="ru"/><meta property="og:description" content="Окна, которые перекрываются, окна, границы которых задают сами данные, и что с каждыми делает поздняя запись."/><meta property="og:site_name" content="Потоковая обработка"/><meta name="twitter:card" content="summary_large_image"/><meta name="description" content="Окна, которые перекрываются, окна, границы которых задают сами данные, и что с каждыми делает поздняя запись."/><meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)"/><meta name="theme-color" content="#2b2b30" media="(prefers-color-scheme: dark)"/><meta property="og:image" content="https://stream-processing-systems.github.io/og-image-ru.png"/><meta property="og:image:width" content="1200"/><meta property="og:image:height" content="630"/><meta name="twitter:image" content="https://stream-processing-systems.github.io/og-image-ru.png"/><script>
+	window.StarlightThemeProvider = (() => {
+		const storedTheme =
+			typeof localStorage !== 'undefined' && localStorage.getItem('starlight-theme');
+		const theme =
+			storedTheme ||
+			(window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark');
+		document.documentElement.dataset.theme = theme === 'light' ? 'light' : 'dark';
+		return {
+			updatePickers(theme = storedTheme || 'auto') {
+				document.querySelectorAll('starlight-theme-select').forEach((picker) => {
+					const select = picker.querySelector('select');
+					if (select) select.value = theme;
+					/** @type {HTMLTemplateElement | null} */
+					const tmpl = document.querySelector(`#theme-icons`);
+					const newIcon = tmpl && tmpl.content.querySelector('.' + theme);
+					if (newIcon) {
+						const oldIcon = picker.querySelector('svg.label-icon');
+						if (oldIcon) {
+							oldIcon.replaceChildren(...newIcon.cloneNode(true).childNodes);
+						}
+					}
+				});
+			},
+		};
+	})();
+</script><template id="theme-icons"><svg aria-hidden="true" class="light astro-hkc32dio" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M5 12a1 1 0 0 0-1-1H3a1 1 0 0 0 0 2h1a1 1 0 0 0 1-1Zm.64 5-.71.71a1 1 0 0 0 0 1.41 1 1 0 0 0 1.41 0l.71-.71A1 1 0 0 0 5.64 17ZM12 5a1 1 0 0 0 1-1V3a1 1 0 0 0-2 0v1a1 1 0 0 0 1 1Zm5.66 2.34a1 1 0 0 0 .7-.29l.71-.71a1 1 0 1 0-1.41-1.41l-.66.71a1 1 0 0 0 0 1.41 1 1 0 0 0 .66.29Zm-12-.29a1 1 0 0 0 1.41 0 1 1 0 0 0 0-1.41l-.71-.71a1.004 1.004 0 1 0-1.43 1.41l.73.71ZM21 11h-1a1 1 0 0 0 0 2h1a1 1 0 0 0 0-2Zm-2.64 6A1 1 0 0 0 17 18.36l.71.71a1 1 0 0 0 1.41 0 1 1 0 0 0 0-1.41l-.76-.66ZM12 6.5a5.5 5.5 0 1 0 5.5 5.5A5.51 5.51 0 0 0 12 6.5Zm0 9a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7Zm0 3.5a1 1 0 0 0-1 1v1a1 1 0 0 0 2 0v-1a1 1 0 0 0-1-1Z"/></svg><svg aria-hidden="true" class="dark astro-hkc32dio" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M21.64 13a1 1 0 0 0-1.05-.14 8.049 8.049 0 0 1-3.37.73 8.15 8.15 0 0 1-8.14-8.1 8.59 8.59 0 0 1 .25-2A1 1 0 0 0 8 2.36a10.14 10.14 0 1 0 14 11.69 1 1 0 0 0-.36-1.05Zm-9.5 6.69A8.14 8.14 0 0 1 7.08 5.22v.27a10.15 10.15 0 0 0 10.14 10.14 9.784 9.784 0 0 0 2.1-.22 8.11 8.11 0 0 1-7.18 4.32v-.04Z"/></svg><svg aria-hidden="true" class="auto astro-hkc32dio" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M21 14h-1V7a3 3 0 0 0-3-3H7a3 3 0 0 0-3 3v7H3a1 1 0 0 0-1 1v2a3 3 0 0 0 3 3h14a3 3 0 0 0 3-3v-2a1 1 0 0 0-1-1ZM6 7a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v7H6V7Zm14 10a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-1h16v1Z"/></svg></template><link rel="stylesheet" href="/_astro/print.ehPL0gv-.css" media="print"><link rel="stylesheet" href="/_astro/index.lQs-5T5e.css"><script type="module" src="/_astro/page.Dwipeu-R.js"></script></head><body class="astro-g5ptsecz"><a class="sl-skip-link astro-qb7clj6f" href="#_top">Перейти к содержимому</a><div class="page sl-flex astro-jvulkizc"><header class="header astro-jvulkizc"><div class="header astro-by6fddyj"><div class="title-wrapper sl-flex astro-by6fddyj"><a href="/ru" class="site-title sl-flex astro-6rvad3va"><img class="astro-6rvad3va" alt src="/_astro/logo.DKQKHWKq.png" width="192" height="192"><span class="astro-6rvad3va" translate="no">Потоковая обработка</span></a></div><div class="sl-flex print:hidden astro-by6fddyj"><site-search class="astro-223fx62r astro-b5kgnn7o" data-translations="{&quot;placeholder&quot;:&quot;Поиск&quot;,&quot;clear_search&quot;:&quot;Очистить&quot;,&quot;load_more&quot;:&quot;Показать ещё&quot;,&quot;search_label&quot;:&quot;Поиск по сайту&quot;,&quot;filters_label&quot;:&quot;Фильтры&quot;,&quot;zero_results&quot;:&quot;Ничего не найдено по запросу «[SEARCH_TERM]»&quot;,&quot;many_results&quot;:&quot;Найдено: [COUNT] по запросу «[SEARCH_TERM]»&quot;,&quot;one_result&quot;:&quot;Найдено: [COUNT] по запросу «[SEARCH_TERM]»&quot;,&quot;alt_search&quot;:&quot;Ничего не найдено по запросу «[SEARCH_TERM]». Результаты для «[DIFFERENT_TERM]»&quot;,&quot;search_suggestion&quot;:&quot;Ничего не найдено по запросу «[SEARCH_TERM]». Попробуйте другой запрос:&quot;,&quot;searching&quot;:&quot;Поиск «[SEARCH_TERM]»…&quot;}"><button data-open-modal disabled aria-label="Поиск" aria-keyshortcuts="Control+K" class="astro-b5kgnn7o"><svg aria-hidden="true" class="astro-b5kgnn7o astro-hkc32dio" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M21.71 20.29 18 16.61A9 9 0 1 0 16.61 18l3.68 3.68a.999.999 0 0 0 1.42 0 1 1 0 0 0 0-1.39ZM11 18a7 7 0 1 1 0-14 7 7 0 0 1 0 14Z"/></svg><span class="sl-hidden md:sl-block astro-b5kgnn7o" aria-hidden="true">Поиск</span><kbd class="sl-hidden md:sl-flex astro-b5kgnn7o" style="display: none;"><kbd class="astro-b5kgnn7o">Ctrl</kbd><kbd class="astro-b5kgnn7o">K</kbd></kbd></button><dialog style="padding:0" aria-label="Поиск" class="astro-b5kgnn7o"><div class="dialog-frame sl-flex astro-b5kgnn7o"><button data-close-modal class="sl-flex md:sl-hidden astro-b5kgnn7o">Отменить</button><div class="search-container astro-b5kgnn7o"><div id="starlight__search" class="astro-b5kgnn7o"></div></div></div></dialog></site-search><script>
+	(() => {
+		const openBtn = document.querySelector('button[data-open-modal]');
+		const shortcut = openBtn?.querySelector('kbd');
+		if (!openBtn || !(shortcut instanceof HTMLElement)) return;
+		const platformKey = shortcut.querySelector('kbd');
+		if (platformKey && /(Mac|iPhone|iPod|iPad)/i.test(navigator.platform)) {
+			platformKey.textContent = '⌘';
+			openBtn.setAttribute('aria-keyshortcuts', 'Meta+K');
+		}
+		shortcut.style.display = '';
+	})();
+</script><script type="module" src="/_astro/Search.astro_astro_type_script_index_0_lang.Bumivpjo.js"></script><div class="course-search-start astro-223fx62r" hidden><p class="course-search-start-heading astro-223fx62r">С чего начать</p><ul class="astro-223fx62r"><li class="astro-223fx62r"><a href="/ru/course/introduction/why-stream-processing/" class="astro-223fx62r"><span class="course-search-start-section astro-223fx62r">Введение</span><span class="course-search-start-title astro-223fx62r">Зачем нужна потоковая обработка?</span></a></li><li class="astro-223fx62r"><a href="/ru/course/fundamentals/what-does-an-event-tell-us/" class="astro-223fx62r"><span class="course-search-start-section astro-223fx62r">Основы</span><span class="course-search-start-title astro-223fx62r">Что сообщает событие?</span></a></li><li class="astro-223fx62r"><a href="/ru/course/time/event-time-and-processing-time/" class="astro-223fx62r"><span class="course-search-start-section astro-223fx62r">Время и окна</span><span class="course-search-start-title astro-223fx62r">Время события и время обработки</span></a></li></ul></div><script type="module">var e=document.querySelector(`.course-search-start`),t=document.querySelector(`site-search .search-container`);e&&t&&(t.append(e),e.hidden=!1);</script></div><div class="sl-hidden md:sl-flex print:hidden right-group astro-by6fddyj"><div class="sl-flex social-icons astro-by6fddyj"></div><course-theme-toggle class="astro-e52pfzt5"><button type="button" class="course-theme-toggle astro-e52pfzt5" aria-label="Переключить тему" title="Переключить тему"><svg aria-hidden="true" class="course-theme-icon course-theme-moon astro-e52pfzt5 astro-hkc32dio" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M21.64 13a1 1 0 0 0-1.05-.14 8.049 8.049 0 0 1-3.37.73 8.15 8.15 0 0 1-8.14-8.1 8.59 8.59 0 0 1 .25-2A1 1 0 0 0 8 2.36a10.14 10.14 0 1 0 14 11.69 1 1 0 0 0-.36-1.05Zm-9.5 6.69A8.14 8.14 0 0 1 7.08 5.22v.27a10.15 10.15 0 0 0 10.14 10.14 9.784 9.784 0 0 0 2.1-.22 8.11 8.11 0 0 1-7.18 4.32v-.04Z"/></svg><svg aria-hidden="true" class="course-theme-icon course-theme-sun astro-e52pfzt5 astro-hkc32dio" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M5 12a1 1 0 0 0-1-1H3a1 1 0 0 0 0 2h1a1 1 0 0 0 1-1Zm.64 5-.71.71a1 1 0 0 0 0 1.41 1 1 0 0 0 1.41 0l.71-.71A1 1 0 0 0 5.64 17ZM12 5a1 1 0 0 0 1-1V3a1 1 0 0 0-2 0v1a1 1 0 0 0 1 1Zm5.66 2.34a1 1 0 0 0 .7-.29l.71-.71a1 1 0 1 0-1.41-1.41l-.66.71a1 1 0 0 0 0 1.41 1 1 0 0 0 .66.29Zm-12-.29a1 1 0 0 0 1.41 0 1 1 0 0 0 0-1.41l-.71-.71a1.004 1.004 0 1 0-1.43 1.41l.73.71ZM21 11h-1a1 1 0 0 0 0 2h1a1 1 0 0 0 0-2Zm-2.64 6A1 1 0 0 0 17 18.36l.71.71a1 1 0 0 0 1.41 0 1 1 0 0 0 0-1.41l-.76-.66ZM12 6.5a5.5 5.5 0 1 0 5.5 5.5A5.51 5.51 0 0 0 12 6.5Zm0 9a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7Zm0 3.5a1 1 0 0 0-1 1v1a1 1 0 0 0 2 0v-1a1 1 0 0 0-1-1Z"/></svg></button></course-theme-toggle><script type="module">var e=`starlight-theme`,t=()=>matchMedia(`(prefers-color-scheme: light)`).matches?`light`:`dark`,n=class extends HTMLElement{constructor(){super(),this.querySelector(`button`)?.addEventListener(`click`,()=>{let t=document.documentElement.dataset.theme===`light`?`dark`:`light`;document.documentElement.dataset.theme=t;try{localStorage.setItem(e,t)}catch{}})}};customElements.define(`course-theme-toggle`,n),matchMedia(`(prefers-color-scheme: light)`).addEventListener(`change`,()=>{let n=null;try{n=localStorage.getItem(e)}catch{}n!==`light`&&n!==`dark`&&(document.documentElement.dataset.theme=t())});</script><course-language-switch class="course-language-switch astro-e5tdbfla"><button type="button" class="course-language-button astro-e5tdbfla" aria-haspopup="true" aria-expanded="false" aria-label="Выбрать язык" title="Выбрать язык">RU</button><ul class="course-language-menu astro-e5tdbfla" hidden><li class="astro-e5tdbfla"><a href="/en/course/time/sliding-and-session-windows/" hreflang="en" lang="en" class="astro-e5tdbfla">English</a></li></ul></course-language-switch><script type="module">var e=class extends HTMLElement{constructor(){super();let e=this.querySelector(`button`),t=this.querySelector(`ul`);if(!e||!t)return;let n=n=>{t.hidden=!n,e.setAttribute(`aria-expanded`,String(n))};e.addEventListener(`click`,()=>n(t.hidden)),document.addEventListener(`click`,e=>{this.contains(e.target)||n(!1)}),this.addEventListener(`keydown`,t=>{t.key===`Escape`&&(n(!1),e.focus())})}};customElements.define(`course-language-switch`,e);</script></div></div></header><nav class="sidebar print:hidden astro-jvulkizc" aria-label="Основное"><button popovertarget="starlight__sidebar" class="sl-menu-button sl-flex lg:sl-hidden print:hidden astro-typaf3vk"><svg aria-hidden="true" class="open-menu astro-typaf3vk astro-hkc32dio" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M3 8h18a1 1 0 1 0 0-2H3a1 1 0 0 0 0 2Zm18 8H3a1 1 0 0 0 0 2h18a1 1 0 0 0 0-2Zm0-5H3a1 1 0 0 0 0 2h18a1 1 0 0 0 0-2Z"/></svg><svg aria-hidden="true" class="close-menu astro-typaf3vk astro-hkc32dio" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="m13.41 12 6.3-6.29a1.004 1.004 0 1 0-1.42-1.42L12 10.59l-6.29-6.3a1.004 1.004 0 0 0-1.42 1.42l6.3 6.29-6.3 6.29a1 1 0 0 0 0 1.42.998.998 0 0 0 1.42 0l6.29-6.3 6.29 6.3a.999.999 0 0 0 1.42 0 1 1 0 0 0 0-1.42L13.41 12Z"/></svg><span class="sr-only astro-typaf3vk">Меню</span></button><script type="module">var e=class extends HTMLElement{constructor(){super();let e=matchMedia(`(min-width: 72em)`),t=()=>{this.popover=e.matches?null:`auto`};t(),e.addEventListener(`change`,()=>t()),this.addEventListener(`toggle`,({newState:e})=>this.trapFocus(e===`open`))}trapFocus(e){document.querySelectorAll(`.main-frame, .sl-skip-link`).forEach(t=>{t.toggleAttribute(`inert`,e)})}};customElements.define(`sl-sidebar-pane`,e);</script><sl-sidebar-pane popover id="starlight__sidebar" class="sidebar-pane astro-jvulkizc"><div class="sidebar-content sl-flex astro-jvulkizc"><div class="course-sidebar-brand astro-6vmd22lb"><a href="/ru" class="site-title sl-flex astro-6rvad3va"><img class="astro-6rvad3va" alt src="/_astro/logo.DKQKHWKq.png" width="192" height="192"><span class="astro-6rvad3va" translate="no">Потоковая обработка</span></a></div><sl-sidebar-state-persist data-hash="1bmljjh" class="astro-ipdry5cl"><script aria-hidden="true">
+		(() => {
+			try {
+				if (!matchMedia('(min-width: 50em)').matches) return;
+				/** @type {HTMLElement | null} */
+				const target = document.querySelector('sl-sidebar-state-persist');
+				const state = JSON.parse(sessionStorage.getItem('sl-sidebar-state') || '0');
+				if (!target || !state || target.dataset.hash !== state.hash) return;
+				window._starlightScrollRestore = state.scroll;
+				customElements.define(
+					'sl-sidebar-restore',
+					class SidebarRestore extends HTMLElement {
+						connectedCallback() {
+							try {
+								const idx = parseInt(this.dataset.index || '');
+								const details = this.closest('details');
+								if (details && typeof state.open[idx] === 'boolean') details.open = state.open[idx];
+							} catch {}
+						}
+					}
+				);
+			} catch {}
+		})();
+	</script><ul class="top-level astro-rmhv4bp6"><li class="astro-rmhv4bp6"><details open class="astro-rmhv4bp6"><summary class="astro-rmhv4bp6"><span class="group-label astro-rmhv4bp6"><span class="large astro-rmhv4bp6">Введение</span></span><svg aria-hidden="true" class="caret astro-rmhv4bp6 astro-hkc32dio" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.25rem;"><path d="m14.83 11.29-4.24-4.24a1 1 0 1 0-1.42 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41 1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.24-4.24a1.002 1.002 0 0 0 0-1.42Z"/></svg></summary><sl-sidebar-restore data-index="0"></sl-sidebar-restore><ul class="astro-rmhv4bp6"><li class="astro-rmhv4bp6"><a href="/ru/course/introduction/why-stream-processing/" class="astro-rmhv4bp6"><span class="astro-rmhv4bp6">Зачем нужна потоковая обработка?</span></a></li></ul></details></li><li class="astro-rmhv4bp6"><details open class="astro-rmhv4bp6"><summary class="astro-rmhv4bp6"><span class="group-label astro-rmhv4bp6"><span class="large astro-rmhv4bp6">Основы</span></span><svg aria-hidden="true" class="caret astro-rmhv4bp6 astro-hkc32dio" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.25rem;"><path d="m14.83 11.29-4.24-4.24a1 1 0 1 0-1.42 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41 1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.24-4.24a1.002 1.002 0 0 0 0-1.42Z"/></svg></summary><sl-sidebar-restore data-index="1"></sl-sidebar-restore><ul class="astro-rmhv4bp6"><li class="astro-rmhv4bp6"><a href="/ru/course/fundamentals/what-does-an-event-tell-us/" class="astro-rmhv4bp6"><span class="astro-rmhv4bp6">Что сообщает событие?</span></a></li><li class="astro-rmhv4bp6"><a href="/ru/course/fundamentals/from-events-to-results/" class="astro-rmhv4bp6"><span class="astro-rmhv4bp6">От событий к результату</span></a></li><li class="astro-rmhv4bp6"><a href="/ru/course/fundamentals/when-one-event-is-not-enough/" class="astro-rmhv4bp6"><span class="astro-rmhv4bp6">Когда одного события недостаточно</span></a></li><li class="astro-rmhv4bp6"><a href="/ru/course/fundamentals/grouping-events-by-key/" class="astro-rmhv4bp6"><span class="astro-rmhv4bp6">Группировка событий по ключу</span></a></li></ul></details></li><li class="astro-rmhv4bp6"><details open class="astro-rmhv4bp6"><summary class="astro-rmhv4bp6"><span class="group-label astro-rmhv4bp6"><span class="large astro-rmhv4bp6">Время и окна</span></span><svg aria-hidden="true" class="caret astro-rmhv4bp6 astro-hkc32dio" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.25rem;"><path d="m14.83 11.29-4.24-4.24a1 1 0 1 0-1.42 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41 1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.24-4.24a1.002 1.002 0 0 0 0-1.42Z"/></svg></summary><sl-sidebar-restore data-index="2"></sl-sidebar-restore><ul class="astro-rmhv4bp6"><li class="astro-rmhv4bp6"><a href="/ru/course/time/event-time-and-processing-time/" class="astro-rmhv4bp6"><span class="astro-rmhv4bp6">Время события и время обработки</span></a></li><li class="astro-rmhv4bp6"><a href="/ru/course/time/putting-events-into-time-windows/" class="astro-rmhv4bp6"><span class="astro-rmhv4bp6">Как разложить события по временным окнам</span></a></li><li class="astro-rmhv4bp6"><a href="/ru/course/time/sliding-and-session-windows/" aria-current="page" class="astro-rmhv4bp6"><span class="astro-rmhv4bp6">Скользящие и сеансовые окна</span></a></li><li class="astro-rmhv4bp6"><a href="/ru/course/time/how-far-has-the-stream-progressed/" class="astro-rmhv4bp6"><span class="astro-rmhv4bp6">Насколько продвинулся поток?</span></a></li><li class="astro-rmhv4bp6"><a href="/ru/course/time/when-is-a-window-result-ready/" class="astro-rmhv4bp6"><span class="astro-rmhv4bp6">Когда результат окна готов?</span></a></li></ul></details></li></ul><script aria-hidden="true">
+		(() => {
+			const scroller = document.getElementById('starlight__sidebar');
+			if (!window._starlightScrollRestore || !scroller) return;
+			scroller.scrollTop = window._starlightScrollRestore;
+			delete window._starlightScrollRestore;
+		})();
+	</script></sl-sidebar-state-persist><div class="md:sl-hidden"><div class="mobile-preferences sl-flex astro-p4azlveh"><div class="social-icons astro-p4azlveh"></div><course-theme-toggle class="astro-e52pfzt5"><button type="button" class="course-theme-toggle astro-e52pfzt5" aria-label="Переключить тему" title="Переключить тему"><svg aria-hidden="true" class="course-theme-icon course-theme-moon astro-e52pfzt5 astro-hkc32dio" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M21.64 13a1 1 0 0 0-1.05-.14 8.049 8.049 0 0 1-3.37.73 8.15 8.15 0 0 1-8.14-8.1 8.59 8.59 0 0 1 .25-2A1 1 0 0 0 8 2.36a10.14 10.14 0 1 0 14 11.69 1 1 0 0 0-.36-1.05Zm-9.5 6.69A8.14 8.14 0 0 1 7.08 5.22v.27a10.15 10.15 0 0 0 10.14 10.14 9.784 9.784 0 0 0 2.1-.22 8.11 8.11 0 0 1-7.18 4.32v-.04Z"/></svg><svg aria-hidden="true" class="course-theme-icon course-theme-sun astro-e52pfzt5 astro-hkc32dio" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M5 12a1 1 0 0 0-1-1H3a1 1 0 0 0 0 2h1a1 1 0 0 0 1-1Zm.64 5-.71.71a1 1 0 0 0 0 1.41 1 1 0 0 0 1.41 0l.71-.71A1 1 0 0 0 5.64 17ZM12 5a1 1 0 0 0 1-1V3a1 1 0 0 0-2 0v1a1 1 0 0 0 1 1Zm5.66 2.34a1 1 0 0 0 .7-.29l.71-.71a1 1 0 1 0-1.41-1.41l-.66.71a1 1 0 0 0 0 1.41 1 1 0 0 0 .66.29Zm-12-.29a1 1 0 0 0 1.41 0 1 1 0 0 0 0-1.41l-.71-.71a1.004 1.004 0 1 0-1.43 1.41l.73.71ZM21 11h-1a1 1 0 0 0 0 2h1a1 1 0 0 0 0-2Zm-2.64 6A1 1 0 0 0 17 18.36l.71.71a1 1 0 0 0 1.41 0 1 1 0 0 0 0-1.41l-.76-.66ZM12 6.5a5.5 5.5 0 1 0 5.5 5.5A5.51 5.51 0 0 0 12 6.5Zm0 9a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7Zm0 3.5a1 1 0 0 0-1 1v1a1 1 0 0 0 2 0v-1a1 1 0 0 0-1-1Z"/></svg></button></course-theme-toggle><course-language-switch class="course-language-switch astro-e5tdbfla"><button type="button" class="course-language-button astro-e5tdbfla" aria-haspopup="true" aria-expanded="false" aria-label="Выбрать язык" title="Выбрать язык">RU</button><ul class="course-language-menu astro-e5tdbfla" hidden><li class="astro-e5tdbfla"><a href="/en/course/time/sliding-and-session-windows/" hreflang="en" lang="en" class="astro-e5tdbfla">English</a></li></ul></course-language-switch></div></div></div></sl-sidebar-pane></nav><div class="main-frame astro-jvulkizc"><script type="module">var e=document.getElementById(`starlight__sidebar`),t=e?.querySelector(`sl-sidebar-state-persist`),n=`sl-sidebar-state`,r=()=>{let r=[],i=t?.dataset.hash||``;try{let e=sessionStorage.getItem(n),t=JSON.parse(e||`{}`);Array.isArray(t.open)&&t.hash===i&&(r=t.open)}catch{}return{hash:i,open:r,scroll:e?.scrollTop||0}},i=e=>{try{sessionStorage.setItem(n,JSON.stringify(e))}catch{}},a=()=>i(r()),o=(e,t)=>{let n=r();n.open[t]=e,i(n)};t?.addEventListener(`click`,e=>{if(!(e.target instanceof Element))return;let t=e.target.closest(`summary`)?.closest(`details`);if(!t)return;let n=t.querySelector(`sl-sidebar-restore`),r=parseInt(n?.dataset.index||``);isNaN(r)||o(!t.open,r)}),addEventListener(`visibilitychange`,()=>{document.visibilityState===`hidden`&&a()});</script><div class="md:sl-flex astro-z2restcr"><aside class="right-sidebar-container print:hidden astro-z2restcr"><div class="right-sidebar astro-z2restcr"><div class="md:sl-hidden astro-6c243z32"><mobile-starlight-toc data-min-h="2" data-max-h="3" class="astro-66cqc7ze"><nav aria-labelledby="starlight__on-this-page--mobile" class="astro-66cqc7ze"><details id="starlight__mobile-toc" class="astro-66cqc7ze"><summary id="starlight__on-this-page--mobile" class="sl-flex astro-66cqc7ze"><span class="toggle sl-flex astro-66cqc7ze">На этой странице<svg aria-hidden="true" class="caret astro-66cqc7ze astro-hkc32dio" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1rem;"><path d="m14.83 11.29-4.24-4.24a1 1 0 1 0-1.42 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41 1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.24-4.24a1.002 1.002 0 0 0 0-1.42Z"/></svg></span><span class="display-current astro-66cqc7ze"></span></summary><div class="dropdown astro-66cqc7ze"><ul class="isMobile astro-jugkfwgx" style="--depth: 0;"><li style="--depth: 0;" class="astro-jugkfwgx"><a href="#_top" style="--depth: 0;" class="astro-jugkfwgx"><span style="--depth: 0;" class="astro-jugkfwgx">Обзор</span></a></li><li style="--depth: 0;" class="astro-jugkfwgx"><a href="#перекрывающиеся-окна" style="--depth: 0;" class="astro-jugkfwgx"><span style="--depth: 0;" class="astro-jugkfwgx">Перекрывающиеся окна</span></a></li><li style="--depth: 0;" class="astro-jugkfwgx"><a href="#окна-которые-задаёт-активность" style="--depth: 0;" class="astro-jugkfwgx"><span style="--depth: 0;" class="astro-jugkfwgx">Окна, которые задаёт активность</span></a></li><li style="--depth: 0;" class="astro-jugkfwgx"><a href="#поздняя-запись-может-склеить-два-сеанса" style="--depth: 0;" class="astro-jugkfwgx"><span style="--depth: 0;" class="astro-jugkfwgx">Поздняя запись может склеить два сеанса</span></a></li><li style="--depth: 0;" class="astro-jugkfwgx"><a href="#как-выбрать-окно" style="--depth: 0;" class="astro-jugkfwgx"><span style="--depth: 0;" class="astro-jugkfwgx">Как выбрать окно</span></a></li><li style="--depth: 0;" class="astro-jugkfwgx"><a href="#что-запомнить" style="--depth: 0;" class="astro-jugkfwgx"><span style="--depth: 0;" class="astro-jugkfwgx">Что запомнить</span></a></li><li style="--depth: 0;" class="astro-jugkfwgx"><a href="#источники" style="--depth: 0;" class="astro-jugkfwgx"><span style="--depth: 0;" class="astro-jugkfwgx">Источники</span></a></li><li style="--depth: 0;" class="astro-jugkfwgx"><a href="#что-почитать" style="--depth: 0;" class="astro-jugkfwgx"><span style="--depth: 0;" class="astro-jugkfwgx">Что почитать</span></a></li></ul></div></details></nav></mobile-starlight-toc><script type="module" src="/_astro/MobileTableOfContents.astro_astro_type_script_index_0_lang.C3fM4Kra.js"></script></div><div class="right-sidebar-panel sl-hidden md:sl-block astro-6c243z32"><div class="sl-container astro-6c243z32"><starlight-toc data-min-h="2" data-max-h="3"><nav aria-labelledby="starlight__on-this-page"><h2 id="starlight__on-this-page">На этой странице</h2><ul class="astro-jugkfwgx" style="--depth: 0;"><li style="--depth: 0;" class="astro-jugkfwgx"><a href="#_top" style="--depth: 0;" class="astro-jugkfwgx"><span style="--depth: 0;" class="astro-jugkfwgx">Обзор</span></a></li><li style="--depth: 0;" class="astro-jugkfwgx"><a href="#перекрывающиеся-окна" style="--depth: 0;" class="astro-jugkfwgx"><span style="--depth: 0;" class="astro-jugkfwgx">Перекрывающиеся окна</span></a></li><li style="--depth: 0;" class="astro-jugkfwgx"><a href="#окна-которые-задаёт-активность" style="--depth: 0;" class="astro-jugkfwgx"><span style="--depth: 0;" class="astro-jugkfwgx">Окна, которые задаёт активность</span></a></li><li style="--depth: 0;" class="astro-jugkfwgx"><a href="#поздняя-запись-может-склеить-два-сеанса" style="--depth: 0;" class="astro-jugkfwgx"><span style="--depth: 0;" class="astro-jugkfwgx">Поздняя запись может склеить два сеанса</span></a></li><li style="--depth: 0;" class="astro-jugkfwgx"><a href="#как-выбрать-окно" style="--depth: 0;" class="astro-jugkfwgx"><span style="--depth: 0;" class="astro-jugkfwgx">Как выбрать окно</span></a></li><li style="--depth: 0;" class="astro-jugkfwgx"><a href="#что-запомнить" style="--depth: 0;" class="astro-jugkfwgx"><span style="--depth: 0;" class="astro-jugkfwgx">Что запомнить</span></a></li><li style="--depth: 0;" class="astro-jugkfwgx"><a href="#источники" style="--depth: 0;" class="astro-jugkfwgx"><span style="--depth: 0;" class="astro-jugkfwgx">Источники</span></a></li><li style="--depth: 0;" class="astro-jugkfwgx"><a href="#что-почитать" style="--depth: 0;" class="astro-jugkfwgx"><span style="--depth: 0;" class="astro-jugkfwgx">Что почитать</span></a></li></ul></nav></starlight-toc><script type="module" src="/_astro/TableOfContents.astro_astro_type_script_index_0_lang.BpJaGz7G.js"></script></div></div><script type="module">async function e(){let e=document.querySelector(`starlight-toc`);if(!e)return;let t=[...e.querySelectorAll(`a[href^="#"]`)].map(e=>document.getElementById(decodeURIComponent(e.hash.slice(1)))).filter(e=>e!==null);if(t.length<2)return;await document.fonts.ready;let n=()=>{let e=parseFloat(getComputedStyle(document.documentElement).scrollPaddingTop)||0,n=t[0];for(let r of t){let t=parseFloat(getComputedStyle(r).scrollMarginTop)||0;if(r.getBoundingClientRect().top>e+t+2)break;n=r}let r=new URL(window.location.href);r.hash=n.id===`_top`?``:n.id,r.href!==window.location.href&&history.replaceState(history.state,``,r)},r;requestAnimationFrame(()=>{window.addEventListener(`scroll`,()=>{clearTimeout(r),r=setTimeout(n,150)},{passive:!0})})}e();</script></div></aside><div class="main-pane astro-z2restcr"><main data-pagefind-body class="astro-g5ptsecz" lang="ru" dir="ltr"><div class="content-panel astro-a7po4psb"><div class="sl-container astro-a7po4psb"><div class="article-heading astro-rpssgujp"><p class="article-section astro-rpssgujp">Время и окна</p><h1 id="_top" class="astro-rpssgujp">Скользящие и сеансовые окна</h1><p class="article-description astro-rpssgujp">Окна, которые перекрываются, окна, границы которых задают сами данные, и что с каждыми делает поздняя запись.</p><details class="course-ai astro-rpssgujp"><summary class="astro-rpssgujp">Изучать с ИИ-ассистентом 🤖</summary><div class="course-ai-body astro-rpssgujp"><p class="course-ai-hint astro-g73rzpxe">Скопируйте промпт и вставьте его в чат с ИИ-ассистентом.</p><div class="expressive-code astro-g73rzpxe"><link rel="stylesheet" href="/_astro/ec.w36nc.css"><script type="module" src="/_astro/ec.0vx5m.js"></script><figure class="frame not-content"><figcaption class="header"></figcaption><pre data-language="text" class="wrap" style="--ecMaxLine:224ch"><code><div class="ec-line"><div class="code"><span style="--0:#d6deeb;--1:#403f53">Ты — преподаватель курса «Потоковая обработка».</span></div></div><div class="ec-line"><div class="code"><span style="--0:#d6deeb;--1:#403f53">Тема: «Скользящие и сеансовые окна»</span></div></div><div class="ec-line"><div class="code"><span style="--0:#d6deeb;--1:#403f53">О чём: Окна, которые перекрываются, окна, границы которых задают сами данные, и что с каждыми делает поздняя запись.</span></div></div><div class="ec-line"><div class="code"><span style="--0:#d6deeb;--1:#403f53">Текст статьи в Markdown: https://stream-processing-systems.github.io/ru/course/time/sliding-and-session-windows.md</span></div></div><div class="ec-line"><div class="code"><span style="--0:#d6deeb;--1:#403f53">Опирайся на эту статью. Сначала спроси, как мне удобнее: кратко, пошагово или глубоко с вопросами на понимание. Объясняй на примере из статьи и в её терминах. Если добавляешь сведения, которых в статье нет, явно это отмечай.</span></div></div></code></pre><div class="copy"><div aria-live="polite"></div><button title="Копировать" data-copied="Скопировано!" data-code="Ты — преподаватель курса «Потоковая обработка».Тема: «Скользящие и сеансовые окна»О чём: Окна, которые перекрываются, окна, границы которых задают сами данные, и что с каждыми делает поздняя запись.Текст статьи в Markdown: https://stream-processing-systems.github.io/ru/course/time/sliding-and-session-windows.mdОпирайся на эту статью. Сначала спроси, как мне удобнее: кратко, пошагово или глубоко с вопросами на понимание. Объясняй на примере из статьи и в её терминах. Если добавляешь сведения, которых в статье нет, явно это отмечай."><div></div></button></div></figure></div></div></details></div></div></div><div class="content-panel astro-a7po4psb"><div class="sl-container astro-a7po4psb"><div class="sl-markdown-content" data-course-widgets data-widget-labels="{&quot;close&quot;:&quot;Закрыть&quot;,&quot;definition&quot;:&quot;Определение:&quot;,&quot;diagram&quot;:&quot;Просмотр диаграммы&quot;,&quot;zoomIn&quot;:&quot;Увеличить&quot;,&quot;zoomOut&quot;:&quot;Уменьшить&quot;,&quot;fit&quot;:&quot;Вписать&quot;,&quot;original&quot;:&quot;Открыть оригинал&quot;,&quot;zoom&quot;:&quot;Масштаб&quot;,&quot;diagramHint&quot;:&quot;Кнопки + / − меняют масштаб. Прокрутка перемещает диаграмму.&quot;,&quot;definitions&quot;:&quot;Определения&quot;}"><p>В магазине <code dir="auto">store-418</code> руководитель смены считает упакованные заказы по
+<a href="/ru/course/time/putting-events-into-time-windows/" data-course-link="">десятиминутным окнам (window)</a> по времени
+события (event time). Но в 10:14 текущее окно содержит упаковки всего за четыре
+минуты, поэтому его подсчёт мал, как бы хорошо ни работал магазин. Руководителю
+удобнее в любой момент видеть последние десять минут с обновлением каждые пять
+минут: с 10:00 до 10:10, потом с 10:05 до 10:15, потом с 10:10 до 10:20.</p>
+<p>Такие окна перекрываются. Упаковка вашего заказа <code dir="auto">ord-1042</code> в 10:09 попадает и
+в <code dir="auto">[10:00, 10:10)</code>, и в <code dir="auto">[10:05, 10:15)</code>. Что хранит обработчик (processor),
+когда одно событие (event) относится к нескольким окнам?</p>
+<div class="sl-heading-wrapper level-h2"><h2 id="перекрывающиеся-окна">Перекрывающиеся окна</h2><a class="sl-anchor-link" href="#перекрывающиеся-окна"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 1 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 0 0-1.42-1.42m8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 1 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 0 0 0 1.42 1 1 0 0 0 1.42 0l3.88-3.89a4.49 4.49 0 0 0 0-6.33M8.83 15.17a1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.92-4.92a1 1 0 1 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42"></path></svg></span><span class="sr-only" data-pagefind-ignore="">Заголовок раздела «Перекрывающиеся окна»</span></a></div>
+<p>Окно постоянной длины, которое начинается чаще, чем длится, называется
+<strong>скользящим окном (sliding window)</strong>. У него две настройки: длина, здесь
+десять минут, и <strong>шаг (slide)</strong> — как часто начинается новое окно, здесь каждые
+пять минут. Если шаг короче длины, окна перекрываются, и каждое событие попадает
+в несколько из них<sup><a href="https://nightlies.apache.org/flink/flink-docs-release-2.3/docs/dev/datastream/operators/windows/#sliding-windows" id="user-content-fnref-1" data-footnote-ref="" title="Apache Flink 2.3: Sliding Windows" target="_blank" rel="noopener noreferrer">1</a></sup>.</p>
+<p>Вот заказы, упакованные в <code dir="auto">store-418</code> с 10:00 до 10:12, и окна, в которые
+попадает каждый:</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Заказ</th><th>Упакован (время события)</th><th>Окна</th></tr></thead><tbody><tr><td><code dir="auto">ord-1047</code></td><td>10:03:00</td><td><code dir="auto">[09:55, 10:05)</code>, <code dir="auto">[10:00, 10:10)</code></td></tr><tr><td><code dir="auto">ord-1042</code></td><td>10:09:00</td><td><code dir="auto">[10:00, 10:10)</code>, <code dir="auto">[10:05, 10:15)</code></td></tr><tr><td><code dir="auto">ord-1337</code></td><td>10:09:59</td><td><code dir="auto">[10:00, 10:10)</code>, <code dir="auto">[10:05, 10:15)</code></td></tr><tr><td><code dir="auto">ord-1051</code></td><td>10:10:00</td><td><code dir="auto">[10:05, 10:15)</code>, <code dir="auto">[10:10, 10:20)</code></td></tr><tr><td><code dir="auto">ord-1055</code></td><td>10:11:00</td><td><code dir="auto">[10:05, 10:15)</code>, <code dir="auto">[10:10, 10:20)</code></td></tr></tbody></table>
+<p>Обработчик по-прежнему ведёт один подсчёт для каждого магазина и окна, как с
+<a href="/ru/course/time/putting-events-into-time-windows/" data-course-link="">фиксированными окнами (tumbling windows)</a>.
+Разница в том, что каждое событие теперь прибавляет единицу к двум подсчётам, а
+не к одному. Чтобы их найти, обработчик берёт окна, которые начинаются в момент,
+кратный пяти минутам, не позже времени события, и заканчиваются после него. Для
+10:09 это окна, которые начинаются в 10:00 и в 10:05.</p>
+<figure class="course-diagram">
+<svg viewBox="0 0 384 280" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="sliding-windows-title sliding-windows-desc">
+  <title id="sliding-windows-title">Одно событие в двух перекрывающихся окнах</title>
+  <desc id="sliding-windows-desc">Десятиминутные окна начинаются каждые пять минут, поэтому упаковка ord-1042 в 10:09 попадает и в окно с 10:00, и в окно с 10:05.</desc>
+  <style>
+    .cd-paper { fill: var(--sl-color-bg, #ffffff); }
+    .cd-name { fill: var(--sl-color-white, #18181b); font: 600 14px var(--sl-font, system-ui, sans-serif); }
+    .cd-sub { fill: var(--sl-color-gray-3, #52525b); font: 12px var(--sl-font, system-ui, sans-serif); }
+    .cd-code { fill: var(--sl-color-gray-3, #52525b); font: 12px var(--sl-font-mono, ui-monospace, monospace); }
+    .cd-label { fill: var(--sl-color-gray-3, #52525b); font: 11px var(--sl-font-mono, ui-monospace, monospace); letter-spacing: 0.06em; }
+    .cd-zone-label { fill: var(--sl-color-text-accent, #6366f1); font: 600 11px var(--sl-font-mono, ui-monospace, monospace); letter-spacing: 0.14em; }
+    .cd-arrow { stroke: var(--sl-color-gray-3, #52525b); stroke-width: 1.2; }
+    .cd-arrow-head { fill: var(--sl-color-gray-3, #52525b); }
+    .cd-zone { fill: var(--sl-color-accent-low, #eef0fe); stroke: var(--sl-color-accent, #6366f1); stroke-width: 1; }
+    .cd-node { fill: var(--sl-color-bg, #ffffff); stroke: var(--sl-color-gray-3, #52525b); stroke-width: 1; }
+    .cd-input { fill: color-mix(in srgb, var(--sl-color-gray-3, #52525b) 10%, var(--sl-color-bg, #ffffff)); stroke: var(--sl-color-gray-4, #a1a1aa); stroke-width: 1; }
+    .cd-store { fill: color-mix(in srgb, var(--sl-color-white, #18181b) 5%, var(--sl-color-bg, #ffffff)); stroke: var(--sl-color-gray-3, #52525b); stroke-width: 1; }
+    .cd-accent { fill: var(--sl-color-accent-low, #eef0fe); stroke: var(--sl-color-accent, #6366f1); stroke-width: 1; }
+    .cd-arrow-accent { stroke: var(--sl-color-accent, #6366f1); stroke-width: 1.2; }
+    .cd-arrow-accent-head { fill: var(--sl-color-accent, #6366f1); }
+    .cd-track { stroke: var(--sl-color-gray-4, #a1a1aa); stroke-width: 1; }
+    .cd-guide { stroke: var(--sl-color-gray-4, #a1a1aa); stroke-width: 1; stroke-dasharray: 2 4; }
+    .cd-dot { fill: var(--sl-color-gray-3, #52525b); }
+    .cd-accent-text { fill: var(--sl-color-text-accent, #6366f1); }
+    .cd-orange { fill: color-mix(in srgb, var(--course-orange, #c2410c) 12%, var(--sl-color-bg, #ffffff)); stroke: var(--course-orange, #c2410c); stroke-width: 1; }
+    .cd-orange-text { fill: var(--course-orange, #c2410c); }
+    .cd-teal { fill: color-mix(in srgb, var(--course-teal, #0f766e) 12%, var(--sl-color-bg, #ffffff)); stroke: var(--course-teal, #0f766e); stroke-width: 1; }
+    .cd-teal-text { fill: var(--course-teal, #0f766e); }
+  </style>
+  <defs>
+    <marker id="sliding-windows-arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon class="cd-arrow-head" points="0 0, 8 3, 0 6"></polygon></marker>
+  </defs>
+  <line class="cd-guide" x1="268" y1="28" x2="268" y2="220"></line>
+  <text class="cd-name" x="16" y="20">Упакованные заказы</text>
+  <text class="cd-sub" x="16" y="38">store-418</text>
+  <line class="cd-track" x1="200" y1="28" x2="368" y2="28"></line>
+  <circle class="cd-dot" cx="224" cy="28" r="4"></circle>
+  <circle class="cd-dot" cx="276" cy="28" r="4"></circle>
+  <circle class="cd-dot" cx="284" cy="28" r="4"></circle>
+  <circle class="cd-dot" cx="292" cy="28" r="4"></circle>
+  <circle class="cd-dot cd-accent-text" cx="268" cy="28" r="4"></circle>
+  <text class="cd-code" x="16" y="84">[10:00, 10:10)</text>
+  <text class="cd-sub" x="16" y="102">3 заказа</text>
+  <line class="cd-track" x1="200" y1="92" x2="368" y2="92"></line>
+  <rect class="cd-node" x="200" y="84" width="80" height="16" rx="4"></rect>
+  <text class="cd-code" x="16" y="148">[10:05, 10:15)</text>
+  <text class="cd-sub" x="16" y="166">пока 4 заказа</text>
+  <line class="cd-track" x1="200" y1="156" x2="368" y2="156"></line>
+  <rect class="cd-node" x="240" y="148" width="80" height="16" rx="4"></rect>
+  <text class="cd-code" x="16" y="212">[10:10, 10:20)</text>
+  <text class="cd-sub" x="16" y="230">пока 2 заказа</text>
+  <line class="cd-track" x1="200" y1="220" x2="368" y2="220"></line>
+  <rect class="cd-node" x="280" y="212" width="80" height="16" rx="4"></rect>
+  <line class="cd-arrow" x1="200" y1="236" x2="364" y2="236" marker-end="url(#sliding-windows-arrow)"></line>
+  <text class="cd-code" x="200" y="252" text-anchor="middle">10:00</text>
+  <text class="cd-code" x="280" y="252" text-anchor="middle">10:10</text>
+  <text class="cd-code" x="360" y="252" text-anchor="middle">10:20</text>
+  <text class="cd-label" x="368" y="272" text-anchor="end">ВРЕМЯ СОБЫТИЯ</text>
+</svg>
+</figure>
+<p>При длине десять минут и шаге пять минут каждое событие обновляет два подсчёта.
+При шаге в одну минуту картина у руководителя обновлялась бы каждую минуту, но
+каждое событие обновляло бы десять подсчётов вместо двух, новые окна начинались
+бы в пять раз чаще, и обработчику пришлось бы хранить в пять раз больше
+подсчётов. Чем плавнее картина, тем больше состояния (state) и работы.</p>
+<p>Кроме того, подсчёты нельзя складывать. В <code dir="auto">[10:00, 10:10)</code> три заказа, в
+<code dir="auto">[10:05, 10:15)</code> пока четыре, но магазин упаковал пять заказов, а не семь:
+<code dir="auto">ord-1042</code> и <code dir="auto">ord-1337</code> есть в обоих окнах. Каждый подсчёт отвечает на вопрос
+про свои десять минут.</p>
+<div class="sl-heading-wrapper level-h2"><h2 id="окна-которые-задаёт-активность">Окна, которые задаёт активность</h2><a class="sl-anchor-link" href="#окна-которые-задаёт-активность"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 1 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 0 0-1.42-1.42m8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 1 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 0 0 0 1.42 1 1 0 0 0 1.42 0l3.88-3.89a4.49 4.49 0 0 0 0-6.33M8.83 15.17a1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.92-4.92a1 1 0 1 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42"></path></svg></span><span class="sr-only" data-pagefind-ignore="">Заголовок раздела «Окна, которые задаёт активность»</span></a></div>
+<p>Фиксированные и скользящие окна размечены на часах заранее: начало и конец
+каждого окна известны ещё до того, как придёт первое событие. Но есть вопросы о
+периодах, которые могут обозначить только сами данные. Чтобы увидеть такой
+вопрос, оставим магазин и посмотрим на другой сервис.</p>
+<p>Представьте карту для водителей электромобилей, которая показывает, какие
+общественные зарядные станции сейчас заняты. Пока машина заряжается, станция
+каждые несколько минут присылает показание. Когда машины нет, станция ничего не
+присылает. Карта хочет знать, сколько времени каждая станция занята и занята ли
+она сейчас. Как и у заказов, у показаний одной станции общий
+<a href="/ru/course/fundamentals/grouping-events-by-key/" data-course-link="">ключ (key)</a> — идентификатор
+станции, а периоды считаются по времени события показаний.</p>
+<p>У периода занятости нет постоянной длины: одна машина заряжается двадцать
+минут, другая два часа. Его конец обозначает тишина — достаточно длинная пауза
+между показаниями. Окно, которое объединяет события, разделённые короткими
+паузами, и заканчивается после более длинной паузы, называется <strong>сеансовым
+окном (session window)</strong><sup><a href="https://nightlies.apache.org/flink/flink-docs-release-2.3/docs/dev/datastream/operators/windows/#session-windows" id="user-content-fnref-2" data-footnote-ref="" title="Apache Flink 2.3: Session Windows" target="_blank" rel="noopener noreferrer">2</a></sup>. Его длина зависит от событий внутри.</p>
+<p>Карта использует паузу (gap) в десять минут. Показания, между которыми меньше десяти
+минут, относятся к одному сеансу. Каждый сеанс длится от первого показания до
+момента через десять минут после последнего, потому что только тогда тишина
+продлилась достаточно долго.</p>
+<p>Вот показания станции <code dir="auto">charger-7</code> за одно утро, время везде по UTC:</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Показание (время события)</th><th>Пауза после предыдущего</th><th>Сеанс</th></tr></thead><tbody><tr><td>09:01</td><td>Нет</td><td>1</td></tr><tr><td>09:04</td><td>3 минуты</td><td>1</td></tr><tr><td>09:09</td><td>5 минут</td><td>1</td></tr><tr><td>09:24</td><td>15 минут</td><td>2</td></tr></tbody></table>
+<p>Пауза с 09:09 до 09:24 длиннее десяти минут, поэтому показания образуют два
+сеанса: <code dir="auto">[09:01, 09:19)</code> с тремя показаниями и <code dir="auto">[09:24, 09:34)</code> с одним. Карта
+считает их двумя периодами занятости, возможно, двумя разными машинами, а
+станцию между ними — свободной.</p>
+<div class="sl-heading-wrapper level-h2"><h2 id="поздняя-запись-может-склеить-два-сеанса">Поздняя запись может склеить два сеанса</h2><a class="sl-anchor-link" href="#поздняя-запись-может-склеить-два-сеанса"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 1 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 0 0-1.42-1.42m8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 1 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 0 0 0 1.42 1 1 0 0 0 1.42 0l3.88-3.89a4.49 4.49 0 0 0 0-6.33M8.83 15.17a1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.92-4.92a1 1 0 1 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42"></path></svg></span><span class="sr-only" data-pagefind-ignore="">Заголовок раздела «Поздняя запись может склеить два сеанса»</span></a></div>
+<p>Теперь с опозданием приходит показание из 09:16: у станции была слабая мобильная
+связь, и это показание дошло до обработчика карты позже остальных. Пауза от
+09:09 до него — семь минут, от него до 09:24 — восемь. Обе короче десяти минут,
+поэтому опоздавшее показание заполняет паузу, и два сеанса становятся одним:
+<code dir="auto">[09:01, 09:34)</code> с пятью показаниями. По показаниям не понять, заряжалась ли всё
+это время одна машина или две машины сменили друг друга за несколько минут. Они
+показывают только, что станция ни разу не замолкала на десять минут.</p>
+<figure class="course-diagram">
+<svg viewBox="0 0 384 236" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="session-merge-title session-merge-desc">
+  <title id="session-merge-title">Поздняя запись склеивает два сеанса</title>
+  <desc id="session-merge-desc">Пока показание из 09:16 не пришло, показания образуют два сеанса с паузой в пятнадцать минут; опоздавшее показание заполняет паузу, и сеансы становятся одним.</desc>
+  <style>
+    .cd-paper { fill: var(--sl-color-bg, #ffffff); }
+    .cd-name { fill: var(--sl-color-white, #18181b); font: 600 14px var(--sl-font, system-ui, sans-serif); }
+    .cd-sub { fill: var(--sl-color-gray-3, #52525b); font: 12px var(--sl-font, system-ui, sans-serif); }
+    .cd-code { fill: var(--sl-color-gray-3, #52525b); font: 12px var(--sl-font-mono, ui-monospace, monospace); }
+    .cd-label { fill: var(--sl-color-gray-3, #52525b); font: 11px var(--sl-font-mono, ui-monospace, monospace); letter-spacing: 0.06em; }
+    .cd-zone-label { fill: var(--sl-color-text-accent, #6366f1); font: 600 11px var(--sl-font-mono, ui-monospace, monospace); letter-spacing: 0.14em; }
+    .cd-arrow { stroke: var(--sl-color-gray-3, #52525b); stroke-width: 1.2; }
+    .cd-arrow-head { fill: var(--sl-color-gray-3, #52525b); }
+    .cd-zone { fill: var(--sl-color-accent-low, #eef0fe); stroke: var(--sl-color-accent, #6366f1); stroke-width: 1; }
+    .cd-node { fill: var(--sl-color-bg, #ffffff); stroke: var(--sl-color-gray-3, #52525b); stroke-width: 1; }
+    .cd-input { fill: color-mix(in srgb, var(--sl-color-gray-3, #52525b) 10%, var(--sl-color-bg, #ffffff)); stroke: var(--sl-color-gray-4, #a1a1aa); stroke-width: 1; }
+    .cd-store { fill: color-mix(in srgb, var(--sl-color-white, #18181b) 5%, var(--sl-color-bg, #ffffff)); stroke: var(--sl-color-gray-3, #52525b); stroke-width: 1; }
+    .cd-accent { fill: var(--sl-color-accent-low, #eef0fe); stroke: var(--sl-color-accent, #6366f1); stroke-width: 1; }
+    .cd-arrow-accent { stroke: var(--sl-color-accent, #6366f1); stroke-width: 1.2; }
+    .cd-arrow-accent-head { fill: var(--sl-color-accent, #6366f1); }
+    .cd-track { stroke: var(--sl-color-gray-4, #a1a1aa); stroke-width: 1; }
+    .cd-guide { stroke: var(--sl-color-gray-4, #a1a1aa); stroke-width: 1; stroke-dasharray: 2 4; }
+    .cd-dot { fill: var(--sl-color-gray-3, #52525b); }
+    .cd-accent-text { fill: var(--sl-color-text-accent, #6366f1); }
+    .cd-orange { fill: color-mix(in srgb, var(--course-orange, #c2410c) 12%, var(--sl-color-bg, #ffffff)); stroke: var(--course-orange, #c2410c); stroke-width: 1; }
+    .cd-orange-text { fill: var(--course-orange, #c2410c); }
+    .cd-teal { fill: color-mix(in srgb, var(--course-teal, #0f766e) 12%, var(--sl-color-bg, #ffffff)); stroke: var(--course-teal, #0f766e); stroke-width: 1; }
+    .cd-teal-text { fill: var(--course-teal, #0f766e); }
+  </style>
+  <defs>
+    <marker id="session-merge-arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon class="cd-arrow-head" points="0 0, 8 3, 0 6"></polygon></marker>
+  </defs>
+  <text class="cd-code" x="16" y="20">[09:01, 09:19)</text>
+  <text class="cd-sub" x="16" y="38">сеанс 1, до прихода 09:16</text>
+  <line class="cd-track" x1="200" y1="28" x2="368" y2="28"></line>
+  <rect class="cd-node" x="204" y="20" width="88" height="16" rx="4"></rect>
+  <circle class="cd-dot" cx="204" cy="28" r="4"></circle>
+  <circle class="cd-dot" cx="220" cy="28" r="4"></circle>
+  <circle class="cd-dot" cx="244" cy="28" r="4"></circle>
+  <text class="cd-code" x="16" y="84">[09:24, 09:34)</text>
+  <text class="cd-sub" x="16" y="102">сеанс 2, до прихода 09:16</text>
+  <line class="cd-track" x1="200" y1="92" x2="368" y2="92"></line>
+  <rect class="cd-node" x="316" y="84" width="48" height="16" rx="4"></rect>
+  <circle class="cd-dot" cx="316" cy="92" r="4"></circle>
+  <text class="cd-code" x="16" y="148">[09:01, 09:34)</text>
+  <text class="cd-sub" x="16" y="166">один сеанс после 09:16</text>
+  <line class="cd-track" x1="200" y1="156" x2="368" y2="156"></line>
+  <rect class="cd-node" x="204" y="148" width="160" height="16" rx="4"></rect>
+  <circle class="cd-dot" cx="204" cy="156" r="4"></circle>
+  <circle class="cd-dot" cx="220" cy="156" r="4"></circle>
+  <circle class="cd-dot" cx="244" cy="156" r="4"></circle>
+  <circle class="cd-dot" cx="316" cy="156" r="4"></circle>
+  <circle class="cd-dot cd-accent-text" cx="276" cy="156" r="4"></circle>
+  <line class="cd-arrow" x1="200" y1="192" x2="364" y2="192" marker-end="url(#session-merge-arrow)"></line>
+  <text class="cd-code" x="204" y="208" text-anchor="middle">09:01</text>
+  <text class="cd-code" x="276" y="208" text-anchor="middle">09:16</text>
+  <text class="cd-code" x="364" y="208" text-anchor="middle">09:34</text>
+  <text class="cd-label" x="368" y="228" text-anchor="end">ВРЕМЯ СОБЫТИЯ</text>
+</svg>
+</figure>
+<p>В фиксированных и скользящих окнах поздняя запись попадает в окно, границы
+которого не меняются, и меняется только его подсчёт. В сеансовых окнах поздняя
+запись может сдвинуть сами границы и объединить два окна в одно<sup><a href="https://nightlies.apache.org/flink/flink-docs-release-2.3/docs/dev/datastream/operators/windows/#late-elements-considerations" id="user-content-fnref-3" data-footnote-ref="" title="Apache Flink 2.3: Late elements considerations" target="_blank" rel="noopener noreferrer">3</a></sup>.</p>
+<p>Карта уже показала неверную картину: два периода занятости и свободный
+промежуток между ними. Чтобы её исправить, мало прислать новый сеанс с пятью
+показаниями. Карта должна ещё узнать, что двух прежних сеансов больше нет, иначе
+одна и та же зарядка будет показана дважды. Поэтому обработчик должен сообщить,
+какие прежние результаты заменяет новый.</p>
+<p>Опоздавшее показание показывает и то, как мало доказывает тишина. В 09:19 у
+карты десять минут не было показаний от <code dir="auto">charger-7</code>, и она могла отметить
+станцию свободной. На самом деле станция продолжала присылать показания, и одно
+из них застряло в пути. Тишина от станции значит только, что показания не
+пришли. Она не значит, что станция свободна.</p>
+<div class="sl-heading-wrapper level-h2"><h2 id="как-выбрать-окно">Как выбрать окно</h2><a class="sl-anchor-link" href="#как-выбрать-окно"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 1 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 0 0-1.42-1.42m8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 1 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 0 0 0 1.42 1 1 0 0 0 1.42 0l3.88-3.89a4.49 4.49 0 0 0 0-6.33M8.83 15.17a1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.92-4.92a1 1 0 1 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42"></path></svg></span><span class="sr-only" data-pagefind-ignore="">Заголовок раздела «Как выбрать окно»</span></a></div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Окно</th><th>Границы</th><th>Событие попадает</th><th>Подходит для вопросов вроде</th></tr></thead><tbody><tr><td>Фиксированное</td><td>Заданы на часах, без перекрытия</td><td>Ровно в одно окно</td><td>Сколько заказов упаковали с 10:00 до 10:10?</td></tr><tr><td>Скользящее</td><td>Заданы на часах, с перекрытием</td><td>В несколько окон</td><td>Сколько заказов упаковали за последние десять минут?</td></tr><tr><td>Сеансовое</td><td>Задают события и пауза</td><td>В одно окно, которое может расти и сливаться с другими</td><td>Сколько времени станция была занята?</td></tr></tbody></table>
+<p>Окно выбирают под вопрос. Отчёту руководителя нужны периоды на часах, карте
+станций — периоды активности.</p>
+<p>Слабое место у всех трёх видов окон одно и то же. Подсчёт руководителя для
+<code dir="auto">[10:00, 10:10)</code> вырос уже после 10:10, когда пришли поздние записи. Сеанс
+станции в 09:19 выглядел законченным, но опоздавшее показание его изменило. В
+обоих случаях обработчику нужно было решить, закончилось ли окно, пока более
+ранние события ещё могли быть в пути. Его собственные часы этого не скажут, как
+и самое позднее время события, которое он уже видел. Как обработчику узнать,
+насколько поток продвинулся по времени события?</p>
+<div class="sl-heading-wrapper level-h2"><h2 id="что-запомнить">Что запомнить</h2><a class="sl-anchor-link" href="#что-запомнить"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 1 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 0 0-1.42-1.42m8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 1 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 0 0 0 1.42 1 1 0 0 0 1.42 0l3.88-3.89a4.49 4.49 0 0 0 0-6.33M8.83 15.17a1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.92-4.92a1 1 0 1 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42"></path></svg></span><span class="sr-only" data-pagefind-ignore="">Заголовок раздела «Что запомнить»</span></a></div>
+<ul>
+<li>У скользящего окна есть длина и шаг. Если шаг короче длины, окна
+перекрываются, и каждое событие обновляет несколько результатов, которые
+нельзя складывать.</li>
+<li>Сеансовое окно объединяет события, паузы между которыми короче заданной. Его
+границы зависят от событий.</li>
+<li>Поздняя запись может склеить два сеанса, поэтому обработчик должен заменить
+прежние результаты, а не просто добавить новый.</li>
+<li>Тишина от источника значит, что события не пришли. Она не доказывает, что
+ничего не произошло.</li>
+</ul>
+<div class="sl-heading-wrapper level-h2"><h2 id="источники">Источники</h2><a class="sl-anchor-link" href="#источники"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 1 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 0 0-1.42-1.42m8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 1 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 0 0 0 1.42 1 1 0 0 0 1.42 0l3.88-3.89a4.49 4.49 0 0 0 0-6.33M8.83 15.17a1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.92-4.92a1 1 0 1 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42"></path></svg></span><span class="sr-only" data-pagefind-ignore="">Заголовок раздела «Источники»</span></a></div><section data-footnotes="" class="footnotes" aria-label="Источники"><ol>
+<li id="user-content-fn-1">
+<p><a href="https://nightlies.apache.org/flink/flink-docs-release-2.3/docs/dev/datastream/operators/windows/#sliding-windows" target="_blank" rel="noopener noreferrer">Apache Flink 2.3: Sliding Windows</a>.</p>
+</li>
+<li id="user-content-fn-2">
+<p><a href="https://nightlies.apache.org/flink/flink-docs-release-2.3/docs/dev/datastream/operators/windows/#session-windows" target="_blank" rel="noopener noreferrer">Apache Flink 2.3: Session Windows</a>.</p>
+</li>
+<li id="user-content-fn-3">
+<p><a href="https://nightlies.apache.org/flink/flink-docs-release-2.3/docs/dev/datastream/operators/windows/#late-elements-considerations" target="_blank" rel="noopener noreferrer">Apache Flink 2.3: Late elements considerations</a>.</p>
+</li>
+</ol></section>
+<div class="sl-heading-wrapper level-h2"><h2 id="что-почитать">Что почитать</h2><a class="sl-anchor-link" href="#что-почитать"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 1 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 0 0-1.42-1.42m8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 1 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 0 0 0 1.42 1 1 0 0 0 1.42 0l3.88-3.89a4.49 4.49 0 0 0 0-6.33M8.83 15.17a1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.92-4.92a1 1 0 1 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42"></path></svg></span><span class="sr-only" data-pagefind-ignore="">Заголовок раздела «Что почитать»</span></a></div>
+<ul>
+<li>Джош Фишер и Нин Ван, <em><a href="https://www.piter.com/product/grokaem-striming">Грокаем стриминг</a></em>
+(Питер, 2023), глава 7 «Оконные вычисления». Показывает фиксированные,
+скользящие и сеансовые окна рядом, на одном примере с иллюстрациями.</li>
+<li>Tyler Akidau, Slava Chernyak, Reuven Lax, <em><a href="https://www.oreilly.com/library/view/streaming-systems/9781491983867/">Streaming Systems</a></em>
+(O’Reilly Media, 2018), глава 4 «Advanced Windowing». Объясняет, как
+сеансовые окна собираются слиянием маленьких окон и как система заменяет
+результаты, когда сеансы сливаются.</li>
+</ul>
+</div><div class="course-progress-row"><button type="button" class="course-progress-toggle" role="switch" aria-checked="false" data-course-progress-toggle hidden><span class="course-progress" data-state="seen" aria-hidden="true"></span>Отметить как прочитанное</button></div><footer class="sl-flex astro-ddtxxk7k"><div class="meta sl-flex astro-ddtxxk7k"></div><nav class="course-pagination" aria-label="Между статьями"><a href="/ru/course/time/putting-events-into-time-windows/" rel="prev"><span class="pagination-direction">← Предыдущая</span><span class="pagination-title">Как разложить события по временным окнам</span><span class="pagination-section">Время и окна</span></a><a href="/ru/course/time/how-far-has-the-stream-progressed/" rel="next"><span class="pagination-direction">Следующая →</span><span class="pagination-title">Насколько продвинулся поток?</span><span class="pagination-section">Время и окна</span></a></nav></footer><p class="course-license astro-7g3h5dfi">© 2026 <a href="https://alexengrig.github.io" class="astro-7g3h5dfi">Grig Alex</a> · <a href="https://creativecommons.org/licenses/by-sa/4.0/deed.ru" rel="license" class="astro-7g3h5dfi">CC BY-SA 4.0</a></p></div></div></main></div></div></div></div></body></html>

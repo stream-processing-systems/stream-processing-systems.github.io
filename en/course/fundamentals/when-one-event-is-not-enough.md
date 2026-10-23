@@ -60,7 +60,7 @@ cases apart, the processor compares the new answer with the one it remembered.
 
 The result is also a different kind of thing from the courier desk's feed. The
 feed reports what happened. The waiting list shows
-[current state](https://stream-processing-systems.github.io/en/course/fundamentals/what-an-event-tells-us.md): which orders are waiting right now.
+[current state](https://stream-processing-systems.github.io/en/course/fundamentals/what-does-an-event-tell-us.md): which orders are waiting right now.
 The processor keeps its own copy of that answer to work out the next change.
 This memory can be a variable in a running program or a row in a database.
 
