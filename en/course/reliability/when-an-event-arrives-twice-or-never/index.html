@@ -1,0 +1,343 @@
+<!DOCTYPE html><html lang="en" dir="ltr" data-theme="dark" data-has-toc data-has-sidebar class="astro-g5ptsecz"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/><title>When an event arrives twice or never | Stream Processing</title><link rel="canonical" href="https://stream-processing-systems.github.io/en/course/reliability/when-an-event-arrives-twice-or-never/"/><link rel="alternate" hreflang="en" href="https://stream-processing-systems.github.io/en/course/reliability/when-an-event-arrives-twice-or-never/"/><link rel="alternate" hreflang="ru" href="https://stream-processing-systems.github.io/ru/course/reliability/when-an-event-arrives-twice-or-never/"/><link rel="alternate" hreflang="x-default" href="https://stream-processing-systems.github.io/en/course/reliability/when-an-event-arrives-twice-or-never/"/><link rel="sitemap" href="/sitemap-index.xml"/><link rel="apple-touch-icon" href="/apple-touch-icon.png"/><link rel="icon" href="/favicon.ico" sizes="32x32"/><link rel="manifest" href="/manifest.webmanifest"/><script src="/article-widgets.js" defer></script><script src="/course-progress.js" defer></script><script async src="https://www.googletagmanager.com/gtag/js?id=G-C0KBX4XM6J"></script><script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','G-C0KBX4XM6J');</script><script src="/language-preference.js" defer></script><link rel="shortcut icon" href="/favicon-32.png" type="image/png"/><meta name="generator" content="Astro v7.3.5"/><meta name="generator" content="Starlight v0.42.5"/><meta property="og:title" content="When an event arrives twice or never"/><meta property="og:type" content="article"/><meta property="og:url" content="https://stream-processing-systems.github.io/en/course/reliability/when-an-event-arrives-twice-or-never/"/><meta property="og:locale" content="en"/><meta property="og:description" content="Why a missing acknowledgement makes a sender repeat a record, how a processor recognizes the copy by its event ID, and why removing copies cannot bring back a lost record."/><meta property="og:site_name" content="Stream Processing"/><meta name="twitter:card" content="summary_large_image"/><meta name="description" content="Why a missing acknowledgement makes a sender repeat a record, how a processor recognizes the copy by its event ID, and why removing copies cannot bring back a lost record."/><meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)"/><meta name="theme-color" content="#2b2b30" media="(prefers-color-scheme: dark)"/><meta property="og:image" content="https://stream-processing-systems.github.io/og-image-en.png"/><meta property="og:image:width" content="1200"/><meta property="og:image:height" content="630"/><meta name="twitter:image" content="https://stream-processing-systems.github.io/og-image-en.png"/><script>
+	window.StarlightThemeProvider = (() => {
+		const storedTheme =
+			typeof localStorage !== 'undefined' && localStorage.getItem('starlight-theme');
+		const theme =
+			storedTheme ||
+			(window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark');
+		document.documentElement.dataset.theme = theme === 'light' ? 'light' : 'dark';
+		return {
+			updatePickers(theme = storedTheme || 'auto') {
+				document.querySelectorAll('starlight-theme-select').forEach((picker) => {
+					const select = picker.querySelector('select');
+					if (select) select.value = theme;
+					/** @type {HTMLTemplateElement | null} */
+					const tmpl = document.querySelector(`#theme-icons`);
+					const newIcon = tmpl && tmpl.content.querySelector('.' + theme);
+					if (newIcon) {
+						const oldIcon = picker.querySelector('svg.label-icon');
+						if (oldIcon) {
+							oldIcon.replaceChildren(...newIcon.cloneNode(true).childNodes);
+						}
+					}
+				});
+			},
+		};
+	})();
+</script><template id="theme-icons"><svg aria-hidden="true" class="light astro-hkc32dio" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M5 12a1 1 0 0 0-1-1H3a1 1 0 0 0 0 2h1a1 1 0 0 0 1-1Zm.64 5-.71.71a1 1 0 0 0 0 1.41 1 1 0 0 0 1.41 0l.71-.71A1 1 0 0 0 5.64 17ZM12 5a1 1 0 0 0 1-1V3a1 1 0 0 0-2 0v1a1 1 0 0 0 1 1Zm5.66 2.34a1 1 0 0 0 .7-.29l.71-.71a1 1 0 1 0-1.41-1.41l-.66.71a1 1 0 0 0 0 1.41 1 1 0 0 0 .66.29Zm-12-.29a1 1 0 0 0 1.41 0 1 1 0 0 0 0-1.41l-.71-.71a1.004 1.004 0 1 0-1.43 1.41l.73.71ZM21 11h-1a1 1 0 0 0 0 2h1a1 1 0 0 0 0-2Zm-2.64 6A1 1 0 0 0 17 18.36l.71.71a1 1 0 0 0 1.41 0 1 1 0 0 0 0-1.41l-.76-.66ZM12 6.5a5.5 5.5 0 1 0 5.5 5.5A5.51 5.51 0 0 0 12 6.5Zm0 9a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7Zm0 3.5a1 1 0 0 0-1 1v1a1 1 0 0 0 2 0v-1a1 1 0 0 0-1-1Z"/></svg><svg aria-hidden="true" class="dark astro-hkc32dio" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M21.64 13a1 1 0 0 0-1.05-.14 8.049 8.049 0 0 1-3.37.73 8.15 8.15 0 0 1-8.14-8.1 8.59 8.59 0 0 1 .25-2A1 1 0 0 0 8 2.36a10.14 10.14 0 1 0 14 11.69 1 1 0 0 0-.36-1.05Zm-9.5 6.69A8.14 8.14 0 0 1 7.08 5.22v.27a10.15 10.15 0 0 0 10.14 10.14 9.784 9.784 0 0 0 2.1-.22 8.11 8.11 0 0 1-7.18 4.32v-.04Z"/></svg><svg aria-hidden="true" class="auto astro-hkc32dio" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M21 14h-1V7a3 3 0 0 0-3-3H7a3 3 0 0 0-3 3v7H3a1 1 0 0 0-1 1v2a3 3 0 0 0 3 3h14a3 3 0 0 0 3-3v-2a1 1 0 0 0-1-1ZM6 7a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v7H6V7Zm14 10a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-1h16v1Z"/></svg></template><link rel="stylesheet" href="/_astro/print.ehPL0gv-.css" media="print"><link rel="stylesheet" href="/_astro/index.DGaUXbc6.css"><script type="module" src="/_astro/page.Dwipeu-R.js"></script></head><body class="astro-g5ptsecz"><a class="sl-skip-link astro-qb7clj6f" href="#_top">Skip to content</a><div class="page sl-flex astro-jvulkizc"><header class="header astro-jvulkizc"><div class="header astro-by6fddyj"><div class="title-wrapper sl-flex astro-by6fddyj"><a href="/en" class="site-title sl-flex astro-6rvad3va"><img class="astro-6rvad3va" alt src="/_astro/logo.DKQKHWKq.png" width="192" height="192"><span class="astro-6rvad3va" translate="no">Stream Processing</span></a></div><div class="sl-flex print:hidden astro-by6fddyj"><site-search class="astro-223fx62r astro-b5kgnn7o" data-translations="{&quot;placeholder&quot;:&quot;Search&quot;,&quot;clear_search&quot;:&quot;Clear&quot;,&quot;load_more&quot;:&quot;Load more&quot;,&quot;search_label&quot;:&quot;Search this site&quot;,&quot;filters_label&quot;:&quot;Filters&quot;,&quot;zero_results&quot;:&quot;No results for [SEARCH_TERM]&quot;,&quot;many_results&quot;:&quot;[COUNT] results for [SEARCH_TERM]&quot;,&quot;one_result&quot;:&quot;[COUNT] result for [SEARCH_TERM]&quot;,&quot;alt_search&quot;:&quot;No results for [SEARCH_TERM]. Showing results for [DIFFERENT_TERM]&quot;,&quot;search_suggestion&quot;:&quot;No results for [SEARCH_TERM]. Try another search:&quot;,&quot;searching&quot;:&quot;Searching for [SEARCH_TERM]…&quot;}"><button data-open-modal disabled aria-label="Search" aria-keyshortcuts="Control+K" class="astro-b5kgnn7o"><svg aria-hidden="true" class="astro-b5kgnn7o astro-hkc32dio" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M21.71 20.29 18 16.61A9 9 0 1 0 16.61 18l3.68 3.68a.999.999 0 0 0 1.42 0 1 1 0 0 0 0-1.39ZM11 18a7 7 0 1 1 0-14 7 7 0 0 1 0 14Z"/></svg><span class="sl-hidden md:sl-block astro-b5kgnn7o" aria-hidden="true">Search</span><kbd class="sl-hidden md:sl-flex astro-b5kgnn7o" style="display: none;"><kbd class="astro-b5kgnn7o">Ctrl</kbd><kbd class="astro-b5kgnn7o">K</kbd></kbd></button><dialog style="padding:0" aria-label="Search" class="astro-b5kgnn7o"><div class="dialog-frame sl-flex astro-b5kgnn7o"><button data-close-modal class="sl-flex md:sl-hidden astro-b5kgnn7o">Cancel</button><div class="search-container astro-b5kgnn7o"><div id="starlight__search" class="astro-b5kgnn7o"></div></div></div></dialog></site-search><script>
+	(() => {
+		const openBtn = document.querySelector('button[data-open-modal]');
+		const shortcut = openBtn?.querySelector('kbd');
+		if (!openBtn || !(shortcut instanceof HTMLElement)) return;
+		const platformKey = shortcut.querySelector('kbd');
+		if (platformKey && /(Mac|iPhone|iPod|iPad)/i.test(navigator.platform)) {
+			platformKey.textContent = '⌘';
+			openBtn.setAttribute('aria-keyshortcuts', 'Meta+K');
+		}
+		shortcut.style.display = '';
+	})();
+</script><script type="module" src="/_astro/Search.astro_astro_type_script_index_0_lang.Bumivpjo.js"></script><div class="course-search-start astro-223fx62r" hidden><p class="course-search-start-heading astro-223fx62r">Where to start</p><ul class="astro-223fx62r"><li class="astro-223fx62r"><a href="/en/course/introduction/why-stream-processing/" class="astro-223fx62r"><span class="course-search-start-section astro-223fx62r">Introduction</span><span class="course-search-start-title astro-223fx62r">Why stream processing?</span></a></li><li class="astro-223fx62r"><a href="/en/course/fundamentals/what-does-an-event-tell-us/" class="astro-223fx62r"><span class="course-search-start-section astro-223fx62r">Fundamentals</span><span class="course-search-start-title astro-223fx62r">What does an event tell us?</span></a></li><li class="astro-223fx62r"><a href="/en/course/time/event-time-and-processing-time/" class="astro-223fx62r"><span class="course-search-start-section astro-223fx62r">Time and windows</span><span class="course-search-start-title astro-223fx62r">Event time and processing time</span></a></li><li class="astro-223fx62r"><a href="/en/course/reliability/when-an-event-arrives-twice-or-never/" class="astro-223fx62r"><span class="course-search-start-section astro-223fx62r">Duplicates, loss, and recovery</span><span class="course-search-start-title astro-223fx62r">When an event arrives twice or never</span></a></li></ul></div><script type="module">var e=document.querySelector(`.course-search-start`),t=document.querySelector(`site-search .search-container`);e&&t&&(t.append(e),e.hidden=!1);</script></div><div class="sl-hidden md:sl-flex print:hidden right-group astro-by6fddyj"><div class="sl-flex social-icons astro-by6fddyj"></div><course-theme-toggle class="astro-e52pfzt5"><button type="button" class="course-theme-toggle astro-e52pfzt5" aria-label="Toggle theme" title="Toggle theme"><svg aria-hidden="true" class="course-theme-icon course-theme-moon astro-e52pfzt5 astro-hkc32dio" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M21.64 13a1 1 0 0 0-1.05-.14 8.049 8.049 0 0 1-3.37.73 8.15 8.15 0 0 1-8.14-8.1 8.59 8.59 0 0 1 .25-2A1 1 0 0 0 8 2.36a10.14 10.14 0 1 0 14 11.69 1 1 0 0 0-.36-1.05Zm-9.5 6.69A8.14 8.14 0 0 1 7.08 5.22v.27a10.15 10.15 0 0 0 10.14 10.14 9.784 9.784 0 0 0 2.1-.22 8.11 8.11 0 0 1-7.18 4.32v-.04Z"/></svg><svg aria-hidden="true" class="course-theme-icon course-theme-sun astro-e52pfzt5 astro-hkc32dio" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M5 12a1 1 0 0 0-1-1H3a1 1 0 0 0 0 2h1a1 1 0 0 0 1-1Zm.64 5-.71.71a1 1 0 0 0 0 1.41 1 1 0 0 0 1.41 0l.71-.71A1 1 0 0 0 5.64 17ZM12 5a1 1 0 0 0 1-1V3a1 1 0 0 0-2 0v1a1 1 0 0 0 1 1Zm5.66 2.34a1 1 0 0 0 .7-.29l.71-.71a1 1 0 1 0-1.41-1.41l-.66.71a1 1 0 0 0 0 1.41 1 1 0 0 0 .66.29Zm-12-.29a1 1 0 0 0 1.41 0 1 1 0 0 0 0-1.41l-.71-.71a1.004 1.004 0 1 0-1.43 1.41l.73.71ZM21 11h-1a1 1 0 0 0 0 2h1a1 1 0 0 0 0-2Zm-2.64 6A1 1 0 0 0 17 18.36l.71.71a1 1 0 0 0 1.41 0 1 1 0 0 0 0-1.41l-.76-.66ZM12 6.5a5.5 5.5 0 1 0 5.5 5.5A5.51 5.51 0 0 0 12 6.5Zm0 9a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7Zm0 3.5a1 1 0 0 0-1 1v1a1 1 0 0 0 2 0v-1a1 1 0 0 0-1-1Z"/></svg></button></course-theme-toggle><script type="module">var e=`starlight-theme`,t=()=>matchMedia(`(prefers-color-scheme: light)`).matches?`light`:`dark`,n=class extends HTMLElement{constructor(){super(),this.querySelector(`button`)?.addEventListener(`click`,()=>{let t=document.documentElement.dataset.theme===`light`?`dark`:`light`;document.documentElement.dataset.theme=t;try{localStorage.setItem(e,t)}catch{}})}};customElements.define(`course-theme-toggle`,n),matchMedia(`(prefers-color-scheme: light)`).addEventListener(`change`,()=>{let n=null;try{n=localStorage.getItem(e)}catch{}n!==`light`&&n!==`dark`&&(document.documentElement.dataset.theme=t())});</script><course-language-switch class="course-language-switch astro-e5tdbfla"><button type="button" class="course-language-button astro-e5tdbfla" aria-haspopup="true" aria-expanded="false" aria-label="Choose language" title="Choose language">EN</button><ul class="course-language-menu astro-e5tdbfla" hidden><li class="astro-e5tdbfla"><a href="/ru/course/reliability/when-an-event-arrives-twice-or-never/" hreflang="ru" lang="ru" class="astro-e5tdbfla">Русский</a></li></ul></course-language-switch><script type="module">var e=class extends HTMLElement{constructor(){super();let e=this.querySelector(`button`),t=this.querySelector(`ul`);if(!e||!t)return;let n=n=>{t.hidden=!n,e.setAttribute(`aria-expanded`,String(n))};e.addEventListener(`click`,()=>n(t.hidden)),document.addEventListener(`click`,e=>{this.contains(e.target)||n(!1)}),this.addEventListener(`keydown`,t=>{t.key===`Escape`&&(n(!1),e.focus())})}};customElements.define(`course-language-switch`,e);</script></div></div></header><nav class="sidebar print:hidden astro-jvulkizc" aria-label="Main"><button popovertarget="starlight__sidebar" class="sl-menu-button sl-flex lg:sl-hidden print:hidden astro-typaf3vk"><svg aria-hidden="true" class="open-menu astro-typaf3vk astro-hkc32dio" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M3 8h18a1 1 0 1 0 0-2H3a1 1 0 0 0 0 2Zm18 8H3a1 1 0 0 0 0 2h18a1 1 0 0 0 0-2Zm0-5H3a1 1 0 0 0 0 2h18a1 1 0 0 0 0-2Z"/></svg><svg aria-hidden="true" class="close-menu astro-typaf3vk astro-hkc32dio" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="m13.41 12 6.3-6.29a1.004 1.004 0 1 0-1.42-1.42L12 10.59l-6.29-6.3a1.004 1.004 0 0 0-1.42 1.42l6.3 6.29-6.3 6.29a1 1 0 0 0 0 1.42.998.998 0 0 0 1.42 0l6.29-6.3 6.29 6.3a.999.999 0 0 0 1.42 0 1 1 0 0 0 0-1.42L13.41 12Z"/></svg><span class="sr-only astro-typaf3vk">Menu</span></button><script type="module">var e=class extends HTMLElement{constructor(){super();let e=matchMedia(`(min-width: 72em)`),t=()=>{this.popover=e.matches?null:`auto`};t(),e.addEventListener(`change`,()=>t()),this.addEventListener(`toggle`,({newState:e})=>this.trapFocus(e===`open`))}trapFocus(e){document.querySelectorAll(`.main-frame, .sl-skip-link`).forEach(t=>{t.toggleAttribute(`inert`,e)})}};customElements.define(`sl-sidebar-pane`,e);</script><sl-sidebar-pane popover id="starlight__sidebar" class="sidebar-pane astro-jvulkizc"><div class="sidebar-content sl-flex astro-jvulkizc"><div class="course-sidebar-brand astro-6vmd22lb"><a href="/en" class="site-title sl-flex astro-6rvad3va"><img class="astro-6rvad3va" alt src="/_astro/logo.DKQKHWKq.png" width="192" height="192"><span class="astro-6rvad3va" translate="no">Stream Processing</span></a></div><sl-sidebar-state-persist data-hash="0tzuuu5" class="astro-ipdry5cl"><script aria-hidden="true">
+		(() => {
+			try {
+				if (!matchMedia('(min-width: 50em)').matches) return;
+				/** @type {HTMLElement | null} */
+				const target = document.querySelector('sl-sidebar-state-persist');
+				const state = JSON.parse(sessionStorage.getItem('sl-sidebar-state') || '0');
+				if (!target || !state || target.dataset.hash !== state.hash) return;
+				window._starlightScrollRestore = state.scroll;
+				customElements.define(
+					'sl-sidebar-restore',
+					class SidebarRestore extends HTMLElement {
+						connectedCallback() {
+							try {
+								const idx = parseInt(this.dataset.index || '');
+								const details = this.closest('details');
+								if (details && typeof state.open[idx] === 'boolean') details.open = state.open[idx];
+							} catch {}
+						}
+					}
+				);
+			} catch {}
+		})();
+	</script><ul class="top-level astro-rmhv4bp6"><li class="astro-rmhv4bp6"><details open class="astro-rmhv4bp6"><summary class="astro-rmhv4bp6"><span class="group-label astro-rmhv4bp6"><span class="large astro-rmhv4bp6">Introduction</span></span><svg aria-hidden="true" class="caret astro-rmhv4bp6 astro-hkc32dio" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.25rem;"><path d="m14.83 11.29-4.24-4.24a1 1 0 1 0-1.42 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41 1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.24-4.24a1.002 1.002 0 0 0 0-1.42Z"/></svg></summary><sl-sidebar-restore data-index="0"></sl-sidebar-restore><ul class="astro-rmhv4bp6"><li class="astro-rmhv4bp6"><a href="/en/course/introduction/why-stream-processing/" class="astro-rmhv4bp6"><span class="astro-rmhv4bp6">Why stream processing?</span></a></li></ul></details></li><li class="astro-rmhv4bp6"><details open class="astro-rmhv4bp6"><summary class="astro-rmhv4bp6"><span class="group-label astro-rmhv4bp6"><span class="large astro-rmhv4bp6">Fundamentals</span></span><svg aria-hidden="true" class="caret astro-rmhv4bp6 astro-hkc32dio" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.25rem;"><path d="m14.83 11.29-4.24-4.24a1 1 0 1 0-1.42 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41 1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.24-4.24a1.002 1.002 0 0 0 0-1.42Z"/></svg></summary><sl-sidebar-restore data-index="1"></sl-sidebar-restore><ul class="astro-rmhv4bp6"><li class="astro-rmhv4bp6"><a href="/en/course/fundamentals/what-does-an-event-tell-us/" class="astro-rmhv4bp6"><span class="astro-rmhv4bp6">What does an event tell us?</span></a></li><li class="astro-rmhv4bp6"><a href="/en/course/fundamentals/from-events-to-results/" class="astro-rmhv4bp6"><span class="astro-rmhv4bp6">From events to results</span></a></li><li class="astro-rmhv4bp6"><a href="/en/course/fundamentals/when-one-event-is-not-enough/" class="astro-rmhv4bp6"><span class="astro-rmhv4bp6">When one event is not enough</span></a></li><li class="astro-rmhv4bp6"><a href="/en/course/fundamentals/grouping-events-by-key/" class="astro-rmhv4bp6"><span class="astro-rmhv4bp6">Grouping events by key</span></a></li></ul></details></li><li class="astro-rmhv4bp6"><details open class="astro-rmhv4bp6"><summary class="astro-rmhv4bp6"><span class="group-label astro-rmhv4bp6"><span class="large astro-rmhv4bp6">Time and windows</span></span><svg aria-hidden="true" class="caret astro-rmhv4bp6 astro-hkc32dio" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.25rem;"><path d="m14.83 11.29-4.24-4.24a1 1 0 1 0-1.42 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41 1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.24-4.24a1.002 1.002 0 0 0 0-1.42Z"/></svg></summary><sl-sidebar-restore data-index="2"></sl-sidebar-restore><ul class="astro-rmhv4bp6"><li class="astro-rmhv4bp6"><a href="/en/course/time/event-time-and-processing-time/" class="astro-rmhv4bp6"><span class="astro-rmhv4bp6">Event time and processing time</span></a></li><li class="astro-rmhv4bp6"><a href="/en/course/time/putting-events-into-time-windows/" class="astro-rmhv4bp6"><span class="astro-rmhv4bp6">Putting events into time windows</span></a></li><li class="astro-rmhv4bp6"><a href="/en/course/time/sliding-and-session-windows/" class="astro-rmhv4bp6"><span class="astro-rmhv4bp6">Sliding and session windows</span></a></li><li class="astro-rmhv4bp6"><a href="/en/course/time/how-far-has-the-stream-progressed/" class="astro-rmhv4bp6"><span class="astro-rmhv4bp6">How far has the stream progressed?</span></a></li><li class="astro-rmhv4bp6"><a href="/en/course/time/when-is-a-window-result-ready/" class="astro-rmhv4bp6"><span class="astro-rmhv4bp6">When is a window result ready?</span></a></li></ul></details></li><li class="astro-rmhv4bp6"><details open class="astro-rmhv4bp6"><summary class="astro-rmhv4bp6"><span class="group-label astro-rmhv4bp6"><span class="large astro-rmhv4bp6">Duplicates, loss, and recovery</span></span><svg aria-hidden="true" class="caret astro-rmhv4bp6 astro-hkc32dio" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.25rem;"><path d="m14.83 11.29-4.24-4.24a1 1 0 1 0-1.42 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41 1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.24-4.24a1.002 1.002 0 0 0 0-1.42Z"/></svg></summary><sl-sidebar-restore data-index="3"></sl-sidebar-restore><ul class="astro-rmhv4bp6"><li class="astro-rmhv4bp6"><a href="/en/course/reliability/when-an-event-arrives-twice-or-never/" aria-current="page" class="astro-rmhv4bp6"><span class="astro-rmhv4bp6">When an event arrives twice or never</span></a></li><li class="astro-rmhv4bp6"><a href="/en/course/reliability/what-must-survive-a-restart/" class="astro-rmhv4bp6"><span class="astro-rmhv4bp6">What must survive a restart?</span></a></li><li class="astro-rmhv4bp6"><a href="/en/course/reliability/recovering-a-consistent-computation/" class="astro-rmhv4bp6"><span class="astro-rmhv4bp6">Recovering a consistent computation</span></a></li><li class="astro-rmhv4bp6"><a href="/en/course/reliability/one-result-one-external-effect/" class="astro-rmhv4bp6"><span class="astro-rmhv4bp6">One result, one external effect?</span></a></li></ul></details></li></ul><script aria-hidden="true">
+		(() => {
+			const scroller = document.getElementById('starlight__sidebar');
+			if (!window._starlightScrollRestore || !scroller) return;
+			scroller.scrollTop = window._starlightScrollRestore;
+			delete window._starlightScrollRestore;
+		})();
+	</script></sl-sidebar-state-persist><div class="md:sl-hidden"><div class="mobile-preferences sl-flex astro-p4azlveh"><div class="social-icons astro-p4azlveh"></div><course-theme-toggle class="astro-e52pfzt5"><button type="button" class="course-theme-toggle astro-e52pfzt5" aria-label="Toggle theme" title="Toggle theme"><svg aria-hidden="true" class="course-theme-icon course-theme-moon astro-e52pfzt5 astro-hkc32dio" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M21.64 13a1 1 0 0 0-1.05-.14 8.049 8.049 0 0 1-3.37.73 8.15 8.15 0 0 1-8.14-8.1 8.59 8.59 0 0 1 .25-2A1 1 0 0 0 8 2.36a10.14 10.14 0 1 0 14 11.69 1 1 0 0 0-.36-1.05Zm-9.5 6.69A8.14 8.14 0 0 1 7.08 5.22v.27a10.15 10.15 0 0 0 10.14 10.14 9.784 9.784 0 0 0 2.1-.22 8.11 8.11 0 0 1-7.18 4.32v-.04Z"/></svg><svg aria-hidden="true" class="course-theme-icon course-theme-sun astro-e52pfzt5 astro-hkc32dio" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M5 12a1 1 0 0 0-1-1H3a1 1 0 0 0 0 2h1a1 1 0 0 0 1-1Zm.64 5-.71.71a1 1 0 0 0 0 1.41 1 1 0 0 0 1.41 0l.71-.71A1 1 0 0 0 5.64 17ZM12 5a1 1 0 0 0 1-1V3a1 1 0 0 0-2 0v1a1 1 0 0 0 1 1Zm5.66 2.34a1 1 0 0 0 .7-.29l.71-.71a1 1 0 1 0-1.41-1.41l-.66.71a1 1 0 0 0 0 1.41 1 1 0 0 0 .66.29Zm-12-.29a1 1 0 0 0 1.41 0 1 1 0 0 0 0-1.41l-.71-.71a1.004 1.004 0 1 0-1.43 1.41l.73.71ZM21 11h-1a1 1 0 0 0 0 2h1a1 1 0 0 0 0-2Zm-2.64 6A1 1 0 0 0 17 18.36l.71.71a1 1 0 0 0 1.41 0 1 1 0 0 0 0-1.41l-.76-.66ZM12 6.5a5.5 5.5 0 1 0 5.5 5.5A5.51 5.51 0 0 0 12 6.5Zm0 9a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7Zm0 3.5a1 1 0 0 0-1 1v1a1 1 0 0 0 2 0v-1a1 1 0 0 0-1-1Z"/></svg></button></course-theme-toggle><course-language-switch class="course-language-switch astro-e5tdbfla"><button type="button" class="course-language-button astro-e5tdbfla" aria-haspopup="true" aria-expanded="false" aria-label="Choose language" title="Choose language">EN</button><ul class="course-language-menu astro-e5tdbfla" hidden><li class="astro-e5tdbfla"><a href="/ru/course/reliability/when-an-event-arrives-twice-or-never/" hreflang="ru" lang="ru" class="astro-e5tdbfla">Русский</a></li></ul></course-language-switch></div></div></div></sl-sidebar-pane></nav><div class="main-frame astro-jvulkizc"><script type="module">var e=document.getElementById(`starlight__sidebar`),t=e?.querySelector(`sl-sidebar-state-persist`),n=`sl-sidebar-state`,r=()=>{let r=[],i=t?.dataset.hash||``;try{let e=sessionStorage.getItem(n),t=JSON.parse(e||`{}`);Array.isArray(t.open)&&t.hash===i&&(r=t.open)}catch{}return{hash:i,open:r,scroll:e?.scrollTop||0}},i=e=>{try{sessionStorage.setItem(n,JSON.stringify(e))}catch{}},a=()=>i(r()),o=(e,t)=>{let n=r();n.open[t]=e,i(n)};t?.addEventListener(`click`,e=>{if(!(e.target instanceof Element))return;let t=e.target.closest(`summary`)?.closest(`details`);if(!t)return;let n=t.querySelector(`sl-sidebar-restore`),r=parseInt(n?.dataset.index||``);isNaN(r)||o(!t.open,r)}),addEventListener(`visibilitychange`,()=>{document.visibilityState===`hidden`&&a()});</script><div class="md:sl-flex astro-z2restcr"><aside class="right-sidebar-container print:hidden astro-z2restcr"><div class="right-sidebar astro-z2restcr"><div class="md:sl-hidden astro-6c243z32"><mobile-starlight-toc data-min-h="2" data-max-h="3" class="astro-66cqc7ze"><nav aria-labelledby="starlight__on-this-page--mobile" class="astro-66cqc7ze"><details id="starlight__mobile-toc" class="astro-66cqc7ze"><summary id="starlight__on-this-page--mobile" class="sl-flex astro-66cqc7ze"><span class="toggle sl-flex astro-66cqc7ze">On this page<svg aria-hidden="true" class="caret astro-66cqc7ze astro-hkc32dio" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1rem;"><path d="m14.83 11.29-4.24-4.24a1 1 0 1 0-1.42 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41 1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.24-4.24a1.002 1.002 0 0 0 0-1.42Z"/></svg></span><span class="display-current astro-66cqc7ze"></span></summary><div class="dropdown astro-66cqc7ze"><ul class="isMobile astro-jugkfwgx" style="--depth: 0;"><li style="--depth: 0;" class="astro-jugkfwgx"><a href="#_top" style="--depth: 0;" class="astro-jugkfwgx"><span style="--depth: 0;" class="astro-jugkfwgx">Overview</span></a></li><li style="--depth: 0;" class="astro-jugkfwgx"><a href="#why-a-record-arrives-twice" style="--depth: 0;" class="astro-jugkfwgx"><span style="--depth: 0;" class="astro-jugkfwgx">Why a record arrives twice</span></a></li><li style="--depth: 0;" class="astro-jugkfwgx"><a href="#telling-a-copy-from-a-new-request" style="--depth: 0;" class="astro-jugkfwgx"><span style="--depth: 0;" class="astro-jugkfwgx">Telling a copy from a new request</span></a></li><li style="--depth: 0;" class="astro-jugkfwgx"><a href="#remembering-what-was-counted" style="--depth: 0;" class="astro-jugkfwgx"><span style="--depth: 0;" class="astro-jugkfwgx">Remembering what was counted</span></a></li><li style="--depth: 0;" class="astro-jugkfwgx"><a href="#how-long-to-remember-ids" style="--depth: 0;" class="astro-jugkfwgx"><span style="--depth: 0;" class="astro-jugkfwgx">How long to remember IDs</span></a></li><li style="--depth: 0;" class="astro-jugkfwgx"><a href="#a-lost-record-is-a-different-problem" style="--depth: 0;" class="astro-jugkfwgx"><span style="--depth: 0;" class="astro-jugkfwgx">A lost record is a different problem</span></a></li><li style="--depth: 0;" class="astro-jugkfwgx"><a href="#what-to-remember" style="--depth: 0;" class="astro-jugkfwgx"><span style="--depth: 0;" class="astro-jugkfwgx">What to remember</span></a></li><li style="--depth: 0;" class="astro-jugkfwgx"><a href="#references" style="--depth: 0;" class="astro-jugkfwgx"><span style="--depth: 0;" class="astro-jugkfwgx">References</span></a></li><li style="--depth: 0;" class="astro-jugkfwgx"><a href="#further-reading" style="--depth: 0;" class="astro-jugkfwgx"><span style="--depth: 0;" class="astro-jugkfwgx">Further reading</span></a></li></ul></div></details></nav></mobile-starlight-toc><script type="module" src="/_astro/MobileTableOfContents.astro_astro_type_script_index_0_lang.C3fM4Kra.js"></script></div><div class="right-sidebar-panel sl-hidden md:sl-block astro-6c243z32"><div class="sl-container astro-6c243z32"><starlight-toc data-min-h="2" data-max-h="3"><nav aria-labelledby="starlight__on-this-page"><h2 id="starlight__on-this-page">On this page</h2><ul class="astro-jugkfwgx" style="--depth: 0;"><li style="--depth: 0;" class="astro-jugkfwgx"><a href="#_top" style="--depth: 0;" class="astro-jugkfwgx"><span style="--depth: 0;" class="astro-jugkfwgx">Overview</span></a></li><li style="--depth: 0;" class="astro-jugkfwgx"><a href="#why-a-record-arrives-twice" style="--depth: 0;" class="astro-jugkfwgx"><span style="--depth: 0;" class="astro-jugkfwgx">Why a record arrives twice</span></a></li><li style="--depth: 0;" class="astro-jugkfwgx"><a href="#telling-a-copy-from-a-new-request" style="--depth: 0;" class="astro-jugkfwgx"><span style="--depth: 0;" class="astro-jugkfwgx">Telling a copy from a new request</span></a></li><li style="--depth: 0;" class="astro-jugkfwgx"><a href="#remembering-what-was-counted" style="--depth: 0;" class="astro-jugkfwgx"><span style="--depth: 0;" class="astro-jugkfwgx">Remembering what was counted</span></a></li><li style="--depth: 0;" class="astro-jugkfwgx"><a href="#how-long-to-remember-ids" style="--depth: 0;" class="astro-jugkfwgx"><span style="--depth: 0;" class="astro-jugkfwgx">How long to remember IDs</span></a></li><li style="--depth: 0;" class="astro-jugkfwgx"><a href="#a-lost-record-is-a-different-problem" style="--depth: 0;" class="astro-jugkfwgx"><span style="--depth: 0;" class="astro-jugkfwgx">A lost record is a different problem</span></a></li><li style="--depth: 0;" class="astro-jugkfwgx"><a href="#what-to-remember" style="--depth: 0;" class="astro-jugkfwgx"><span style="--depth: 0;" class="astro-jugkfwgx">What to remember</span></a></li><li style="--depth: 0;" class="astro-jugkfwgx"><a href="#references" style="--depth: 0;" class="astro-jugkfwgx"><span style="--depth: 0;" class="astro-jugkfwgx">References</span></a></li><li style="--depth: 0;" class="astro-jugkfwgx"><a href="#further-reading" style="--depth: 0;" class="astro-jugkfwgx"><span style="--depth: 0;" class="astro-jugkfwgx">Further reading</span></a></li></ul></nav></starlight-toc><script type="module" src="/_astro/TableOfContents.astro_astro_type_script_index_0_lang.BpJaGz7G.js"></script></div></div><script type="module">async function e(){let e=document.querySelector(`starlight-toc`);if(!e)return;let t=[...e.querySelectorAll(`a[href^="#"]`)].map(e=>document.getElementById(decodeURIComponent(e.hash.slice(1)))).filter(e=>e!==null);if(t.length<2)return;await document.fonts.ready;let n=()=>{let e=parseFloat(getComputedStyle(document.documentElement).scrollPaddingTop)||0,n=t[0];for(let r of t){let t=parseFloat(getComputedStyle(r).scrollMarginTop)||0;if(r.getBoundingClientRect().top>e+t+2)break;n=r}let r=new URL(window.location.href);r.hash=n.id===`_top`?``:n.id,r.href!==window.location.href&&history.replaceState(history.state,``,r)},r;requestAnimationFrame(()=>{window.addEventListener(`scroll`,()=>{clearTimeout(r),r=setTimeout(n,150)},{passive:!0})})}e();</script></div></aside><div class="main-pane astro-z2restcr"><main data-pagefind-body class="astro-g5ptsecz" lang="en" dir="ltr"><div class="content-panel astro-a7po4psb"><div class="sl-container astro-a7po4psb"><div class="article-heading astro-rpssgujp"><p class="article-section astro-rpssgujp">Duplicates, loss, and recovery</p><h1 id="_top" class="astro-rpssgujp">When an event arrives twice or never</h1><p class="article-description astro-rpssgujp">Why a missing acknowledgement makes a sender repeat a record, how a processor recognizes the copy by its event ID, and why removing copies cannot bring back a lost record.</p><details class="course-ai astro-rpssgujp"><summary class="astro-rpssgujp">Study with an AI assistant 🤖</summary><div class="course-ai-body astro-rpssgujp"><p class="course-ai-hint astro-g73rzpxe">Copy the prompt and paste it into a chat with an AI assistant.</p><div class="expressive-code astro-g73rzpxe"><link rel="stylesheet" href="/_astro/ec.w36nc.css"><script type="module" src="/_astro/ec.0vx5m.js"></script><figure class="frame not-content"><figcaption class="header"></figcaption><pre data-language="text" class="wrap" style="--ecMaxLine:271ch"><code><div class="ec-line"><div class="code"><span style="--0:#d6deeb;--1:#403f53">You are a tutor for the course "Stream Processing".</span></div></div><div class="ec-line"><div class="code"><span style="--0:#d6deeb;--1:#403f53">Topic: "When an event arrives twice or never"</span></div></div><div class="ec-line"><div class="code"><span style="--0:#d6deeb;--1:#403f53">In short: Why a missing acknowledgement makes a sender repeat a record, how a processor recognizes the copy by its event ID, and why removing copies cannot bring back a lost record.</span></div></div><div class="ec-line"><div class="code"><span style="--0:#d6deeb;--1:#403f53">Article text in Markdown: https://stream-processing-systems.github.io/en/course/reliability/when-an-event-arrives-twice-or-never.md</span></div></div><div class="ec-line"><div class="code"><span style="--0:#d6deeb;--1:#403f53">Base your explanations on this article. First ask how I want to study: a short summary, a step-by-step walkthrough, or a deep dive with questions that check my understanding. Use the article's example and terms. If you add anything the article does not say, point it out.</span></div></div></code></pre><div class="copy"><div aria-live="polite"></div><button title="Copy to clipboard" data-copied="Copied!" data-code="You are a tutor for the course &#x22;Stream Processing&#x22;.Topic: &#x22;When an event arrives twice or never&#x22;In short: Why a missing acknowledgement makes a sender repeat a record, how a processor recognizes the copy by its event ID, and why removing copies cannot bring back a lost record.Article text in Markdown: https://stream-processing-systems.github.io/en/course/reliability/when-an-event-arrives-twice-or-never.mdBase your explanations on this article. First ask how I want to study: a short summary, a step-by-step walkthrough, or a deep dive with questions that check my understanding. Use the article&#x27;s example and terms. If you add anything the article does not say, point it out."><div></div></button></div></figure></div></div></details></div></div></div><div class="content-panel astro-a7po4psb"><div class="sl-container astro-a7po4psb"><div class="sl-markdown-content" data-course-widgets data-widget-labels="{&quot;close&quot;:&quot;Close&quot;,&quot;definition&quot;:&quot;Definition:&quot;,&quot;diagram&quot;:&quot;Diagram viewer&quot;,&quot;zoomIn&quot;:&quot;Zoom in&quot;,&quot;zoomOut&quot;:&quot;Zoom out&quot;,&quot;fit&quot;:&quot;Fit&quot;,&quot;original&quot;:&quot;Open original&quot;,&quot;zoom&quot;:&quot;Zoom&quot;,&quot;diagramHint&quot;:&quot;Use + / − to zoom. Scroll to explore the diagram.&quot;,&quot;definitions&quot;:&quot;Definitions&quot;}"><p>At <code dir="auto">store-418</code>, the supervisor’s count of packed orders for <code dir="auto">[10:00, 10:10)</code>
+<a href="/en/course/time/when-is-a-window-result-ready/" data-course-link="">stands at three</a>. Then the packing
+record of <code dir="auto">ord-1042</code> arrives again: the connection to the processor dropped,
+and the feed sent the record a second time to be safe. The count says four. In
+a store, one extra order on the screen is an annoyance. In a service that
+charges for every record it counts, the same mistake is a wrong bill.</p>
+<p>Consider such a service. A company sells access to an AI assistant and charges
+customers for <strong>tokens</strong>, the small pieces of text the model reads and writes.
+When a request finishes, the service’s gateway, the program that receives
+customers’ requests, sends a usage record to a usage processor: which account,
+how many tokens, and when. The processor adds the tokens to the account’s total
+for the month. The customer sees that total on a usage page, and at the end of
+the month it goes into the bill. On February 2, account <code dir="auto">acme</code> makes three
+requests that use 1,000, 400, and 600 tokens, 2,000 in total. How does the
+processor count each request once, no more and no less?</p>
+<div class="sl-heading-wrapper level-h2"><h2 id="why-a-record-arrives-twice">Why a record arrives twice</h2><a class="sl-anchor-link" href="#why-a-record-arrives-twice"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 1 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 0 0-1.42-1.42m8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 1 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 0 0 0 1.42 1 1 0 0 0 1.42 0l3.88-3.89a4.49 4.49 0 0 0 0-6.33M8.83 15.17a1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.92-4.92a1 1 0 1 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42"></path></svg></span><span class="sr-only" data-pagefind-ignore="">Section titled “Why a record arrives twice”</span></a></div>
+<p>The gateway and the processor talk over a network. The gateway sends a record,
+and the processor replies that it has received it. This reply is called an
+<strong>acknowledgement</strong>. Until the acknowledgement arrives, the gateway keeps the
+record so that it can send it again.</p>
+<p>At 06:00, the gateway sends the record of the second request, <code dir="auto">u-102</code>. The
+processor adds 400 tokens and replies, but the reply is lost on the way back.
+The gateway cannot tell what happened: either the record never reached the
+processor, or it arrived and only the reply was lost. If the gateway gives up,
+it may lose 400 tokens of usage. So it sends the record again.</p>
+<figure class="course-diagram">
+<svg viewBox="0 0 384 204" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="lost-acknowledgement-title lost-acknowledgement-desc">
+  <title id="lost-acknowledgement-title">A lost acknowledgement</title>
+  <desc id="lost-acknowledgement-desc">At 06:00 the gateway sends u-102 and the processor adds 400 tokens, but its acknowledgement is lost, so the gateway sends u-102 again and the processor adds the same 400 tokens a second time.</desc>
+  <style>
+    .cd-paper { fill: var(--sl-color-bg, #ffffff); }
+    .cd-name { fill: var(--sl-color-white, #18181b); font: 600 14px var(--sl-font, system-ui, sans-serif); }
+    .cd-sub { fill: var(--sl-color-gray-3, #52525b); font: 12px var(--sl-font, system-ui, sans-serif); }
+    .cd-code { fill: var(--sl-color-gray-3, #52525b); font: 12px var(--sl-font-mono, ui-monospace, monospace); }
+    .cd-label { fill: var(--sl-color-gray-3, #52525b); font: 11px var(--sl-font-mono, ui-monospace, monospace); letter-spacing: 0.06em; }
+    .cd-zone-label { fill: var(--sl-color-text-accent, #6366f1); font: 600 11px var(--sl-font-mono, ui-monospace, monospace); letter-spacing: 0.14em; }
+    .cd-arrow { stroke: var(--sl-color-gray-3, #52525b); stroke-width: 1.2; }
+    .cd-arrow-head { fill: var(--sl-color-gray-3, #52525b); }
+    .cd-zone { fill: var(--sl-color-accent-low, #eef0fe); stroke: var(--sl-color-accent, #6366f1); stroke-width: 1; }
+    .cd-node { fill: var(--sl-color-bg, #ffffff); stroke: var(--sl-color-gray-3, #52525b); stroke-width: 1; }
+    .cd-input { fill: color-mix(in srgb, var(--sl-color-gray-3, #52525b) 10%, var(--sl-color-bg, #ffffff)); stroke: var(--sl-color-gray-4, #a1a1aa); stroke-width: 1; }
+    .cd-store { fill: color-mix(in srgb, var(--sl-color-white, #18181b) 5%, var(--sl-color-bg, #ffffff)); stroke: var(--sl-color-gray-3, #52525b); stroke-width: 1; }
+    .cd-accent { fill: var(--sl-color-accent-low, #eef0fe); stroke: var(--sl-color-accent, #6366f1); stroke-width: 1; }
+    .cd-arrow-accent { stroke: var(--sl-color-accent, #6366f1); stroke-width: 1.2; }
+    .cd-arrow-accent-head { fill: var(--sl-color-accent, #6366f1); }
+    .cd-track { stroke: var(--sl-color-gray-4, #a1a1aa); stroke-width: 1; }
+    .cd-guide { stroke: var(--sl-color-gray-4, #a1a1aa); stroke-width: 1; stroke-dasharray: 2 4; }
+    .cd-dot { fill: var(--sl-color-gray-3, #52525b); }
+    .cd-accent-text { fill: var(--sl-color-text-accent, #6366f1); }
+    .cd-orange { fill: color-mix(in srgb, var(--course-orange, #c2410c) 12%, var(--sl-color-bg, #ffffff)); stroke: var(--course-orange, #c2410c); stroke-width: 1; }
+    .cd-orange-text { fill: var(--course-orange, #c2410c); }
+    .cd-teal { fill: color-mix(in srgb, var(--course-teal, #0f766e) 12%, var(--sl-color-bg, #ffffff)); stroke: var(--course-teal, #0f766e); stroke-width: 1; }
+    .cd-teal-text { fill: var(--course-teal, #0f766e); }
+  </style>
+  <defs>
+    <marker id="lost-acknowledgement-arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon class="cd-arrow-head" points="0 0, 8 3, 0 6"></polygon></marker>
+  </defs>
+  <text class="cd-name" x="16" y="52">Gateway</text>
+  <text class="cd-sub" x="16" y="70">sends usage records</text>
+  <line class="cd-track" x1="200" y1="60" x2="368" y2="60"></line>
+  <text class="cd-name" x="16" y="116">Processor</text>
+  <text class="cd-sub" x="16" y="134">adds the tokens</text>
+  <line class="cd-track" x1="200" y1="124" x2="368" y2="124"></line>
+  <line class="cd-arrow" x1="216" y1="64" x2="236" y2="112" marker-end="url(#lost-acknowledgement-arrow)"></line>
+  <line class="cd-arrow" x1="344" y1="64" x2="356" y2="112" marker-end="url(#lost-acknowledgement-arrow)"></line>
+  <line class="cd-arrow-accent" x1="248" y1="116" x2="256" y2="96"></line>
+  <line class="cd-arrow-accent" x1="256" y1="80" x2="264" y2="88"></line>
+  <line class="cd-arrow-accent" x1="264" y1="80" x2="256" y2="88"></line>
+  <text class="cd-label cd-accent-text" x="268" y="88">REPLY LOST</text>
+  <circle class="cd-dot" cx="216" cy="60" r="4"></circle>
+  <circle class="cd-dot" cx="344" cy="60" r="4"></circle>
+  <text class="cd-code" x="216" y="44" text-anchor="middle">u-102</text>
+  <text class="cd-code" x="344" y="44" text-anchor="middle">u-102</text>
+  <rect class="cd-store" x="232" y="116" width="16" height="16" rx="4"></rect>
+  <rect class="cd-store" x="352" y="116" width="16" height="16" rx="4"></rect>
+  <text class="cd-code" x="240" y="148" text-anchor="middle">+400</text>
+  <text class="cd-code" x="360" y="148" text-anchor="middle">+400</text>
+  <line class="cd-arrow" x1="200" y1="160" x2="364" y2="160" marker-end="url(#lost-acknowledgement-arrow)"></line>
+  <text class="cd-code" x="216" y="176" text-anchor="middle">06:00</text>
+  <text class="cd-label" x="368" y="196" text-anchor="end">TIME</text>
+</svg>
+</figure>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Record received</th><th>Tokens</th><th>Total if the processor adds every record</th><th>Total if it recognizes the copy</th></tr></thead><tbody><tr><td><code dir="auto">u-101</code></td><td>1,000</td><td>1,000</td><td>1,000</td></tr><tr><td><code dir="auto">u-102</code></td><td>400</td><td>1,400</td><td>1,400</td></tr><tr><td><code dir="auto">u-102</code> again</td><td>400</td><td>1,800</td><td>1,400</td></tr><tr><td><code dir="auto">u-103</code></td><td>600</td><td>2,400</td><td>2,000</td></tr></tbody></table>
+<p>Sending again keeps usage from being lost. The price is that the processor
+sometimes receives one record twice, and it needs a way to tell such a copy
+from a new request.</p>
+<div class="sl-heading-wrapper level-h2"><h2 id="telling-a-copy-from-a-new-request">Telling a copy from a new request</h2><a class="sl-anchor-link" href="#telling-a-copy-from-a-new-request"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 1 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 0 0-1.42-1.42m8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 1 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 0 0 0 1.42 1 1 0 0 0 1.42 0l3.88-3.89a4.49 4.49 0 0 0 0-6.33M8.83 15.17a1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.92-4.92a1 1 0 1 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42"></path></svg></span><span class="sr-only" data-pagefind-ignore="">Section titled “Telling a copy from a new request”</span></a></div>
+<p>The content of a record cannot do it. <code dir="auto">acme</code> may well make two separate
+requests a second apart that each use 400 tokens. Their records would have the
+same account, the same token count, and almost the same time. A processor that
+treated equal records as copies would drop a real request and undercharge the
+customer.</p>
+<p>What tells them apart is the identity of the event. Like <code dir="auto">event_id</code> in our
+<a href="/en/course/fundamentals/what-does-an-event-tell-us/" data-course-link="">grocery events</a>, each usage
+record carries a <code dir="auto">usage_id</code> that names one request. The ID belongs to the
+request, so the gateway assigns it once, when the request finishes, and every
+copy of the record carries the same ID. If the gateway created a new ID for
+each send, every copy would look like a new request.</p>
+<p>Services that send events to other programs over a network run into the same
+problem. Stripe, a payment service, warns that the same event can arrive more
+than once and suggests keeping the IDs of events already processed and
+skipping any event whose ID is among them.<sup><a href="https://docs.stripe.com/webhooks#handle-duplicate-events" id="user-content-fnref-1" data-footnote-ref="" title="Stripe: Handle duplicate events" target="_blank" rel="noopener noreferrer">1</a></sup></p>
+<p>The customer’s app can also repeat a request. If it gets no answer from the
+assistant and sends the request again, the model runs a second time and uses
+tokens again. That is a new request with a new <code dir="auto">usage_id</code>, and the customer
+pays for it.</p>
+<div class="sl-heading-wrapper level-h2"><h2 id="remembering-what-was-counted">Remembering what was counted</h2><a class="sl-anchor-link" href="#remembering-what-was-counted"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 1 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 0 0-1.42-1.42m8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 1 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 0 0 0 1.42 1 1 0 0 0 1.42 0l3.88-3.89a4.49 4.49 0 0 0 0-6.33M8.83 15.17a1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.92-4.92a1 1 0 1 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42"></path></svg></span><span class="sr-only" data-pagefind-ignore="">Section titled “Remembering what was counted”</span></a></div>
+<p>To recognize a copy, the processor has to remember which IDs it has already
+counted. For each account, its
+<a href="/en/course/fundamentals/when-one-event-is-not-enough/" data-course-link="">state</a> now holds two things:
+the total and a list of counted usage IDs, each with its token count. When a
+record arrives, the processor checks its ID. A new ID adds its tokens to the
+total and joins the list. A known ID changes nothing. Recognizing and skipping copies of a record is
+called <strong>deduplication</strong>.</p>
+<p>Checking the ID, adding the tokens, and remembering the ID make up one step.
+If only part of it happens, the total and the list fall out of step. Remember
+<code dir="auto">u-102</code> without adding its 400 tokens, and the copy that follows is skipped, so
+the tokens are never counted. Add the tokens without remembering the ID, and
+the copy is counted again.</p>
+<p>A record with a known ID and a different token count is another matter. The
+processor sees the difference because the list keeps each ID’s token count.
+Such a record cannot be a copy of the same record, and skipping it quietly
+would hide an error somewhere before the processor. Our processor sends such records to a
+list that staff review.</p>
+<p>With deduplication, processing the same record twice has the same effect as
+processing it once. An operation with this property is called <strong>idempotent</strong>.
+Adding 400 tokens to a total is not idempotent: every repeat changes the total.
+“Add the tokens of <code dir="auto">u-102</code> unless <code dir="auto">u-102</code> is already counted” is idempotent:
+the second time, it does nothing.</p>
+<div class="sl-heading-wrapper level-h2"><h2 id="how-long-to-remember-ids">How long to remember IDs</h2><a class="sl-anchor-link" href="#how-long-to-remember-ids"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 1 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 0 0-1.42-1.42m8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 1 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 0 0 0 1.42 1 1 0 0 0 1.42 0l3.88-3.89a4.49 4.49 0 0 0 0-6.33M8.83 15.17a1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.92-4.92a1 1 0 1 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42"></path></svg></span><span class="sr-only" data-pagefind-ignore="">Section titled “How long to remember IDs”</span></a></div>
+<p>A busy service handles millions of requests a month, and the list of counted
+IDs grows with every one of them. The processor cannot keep them all forever,
+so it forgets each ID after a while.</p>
+<p>Suppose it keeps each ID for 24 hours after the record arrives. A copy that
+comes within 24 hours is recognized. A copy that comes later finds no ID in the
+list and is counted again. So the period has to be longer than the longest
+possible time between two copies of one record.</p>
+<p>Our gateway resends a record every few seconds until it gets an
+acknowledgement, so copies of one record usually come seconds apart. They can
+be further apart only if the processor received the first copy and then
+became unreachable: the gateway keeps resending through the whole outage. A
+day of memory covers any outage shorter than a day. For a longer one, the IDs
+have to be kept longer too.</p>
+<p>That reasoning holds as long as copies come from resending. If someone sends
+last week’s records once more, for example to recompute the totals after a
+bug fix, a one-day memory recognizes none of them, and every total grows again.</p>
+<div class="sl-heading-wrapper level-h2"><h2 id="a-lost-record-is-a-different-problem">A lost record is a different problem</h2><a class="sl-anchor-link" href="#a-lost-record-is-a-different-problem"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 1 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 0 0-1.42-1.42m8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 1 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 0 0 0 1.42 1 1 0 0 0 1.42 0l3.88-3.89a4.49 4.49 0 0 0 0-6.33M8.83 15.17a1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.92-4.92a1 1 0 1 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42"></path></svg></span><span class="sr-only" data-pagefind-ignore="">Section titled “A lost record is a different problem”</span></a></div>
+<p>Deduplication handles extra copies. The opposite failure is a record that never
+arrives. Suppose the gateway sends <code dir="auto">u-102</code> once and does not resend it when the
+acknowledgement is missing. If the record was lost on the way, the processor
+never learns about the request, and the total for <code dir="auto">acme</code> is 1,600.
+Deduplication cannot help, because there is no copy to remove. A
+<a href="/en/course/time/how-far-has-the-stream-progressed/" data-course-link="">watermark</a> cannot help either:
+it estimates how far event time has progressed and knows nothing about records
+that were never delivered.</p>
+<p>What the sender does after a missing acknowledgement decides which of the two
+failures is possible. The resulting promises are called <strong>delivery
+guarantees</strong>:</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Guarantee</th><th>How it is achieved</th><th>Lost records</th><th>Records counted twice</th></tr></thead><tbody><tr><td><strong>At-most-once</strong></td><td>The sender sends once and never resends</td><td>Possible</td><td>No</td></tr><tr><td><strong>At-least-once</strong></td><td>The sender keeps the record and resends it until it gets an acknowledgement</td><td>No, as long as the receiver is reachable again at some point</td><td>Possible</td></tr><tr><td><strong>Exactly-once</strong></td><td>At-least-once delivery, and the receiver recognizes copies</td><td>No</td><td>No</td></tr></tbody></table>
+<p>The name “exactly-once” is easy to misread. Copies still arrive, and the
+processor still handles each of them. What happens once is their effect on the
+result. Flink defines its exactly-once
+guarantee the same way: an event may be processed more than once, but it
+affects the state that Flink manages exactly once.<sup><a href="https://nightlies.apache.org/flink/flink-docs-release-2.3/docs/learn-flink/fault_tolerance/#exactly-once-guarantees" id="user-content-fnref-2" data-footnote-ref="" title="Apache Flink 2.3: Exactly Once Guarantees" target="_blank" rel="noopener noreferrer">2</a></sup></p>
+<p>The right guarantee depends on the result. A live chart of requests per minute
+can live with at-most-once, because an occasional missing request barely moves
+the line. Usage that ends up on a bill cannot, so our gateway resends, and the
+processor deduplicates.</p>
+<p>Each guarantee covers one stretch of the path, here between the gateway and
+the processor. If the gateway crashes after a request finishes but before it
+stores the record, no resending will bring that record back. To catch such
+gaps, the service can compare the totals with an independent source, such as
+the assistant’s own log of the requests it served.</p>
+<p>The processor now counts <code dir="auto">acme</code> correctly: 2,000 tokens and three IDs in the
+list. Both live in the processor’s memory. At 06:05, the processor restarts
+after an update, and its memory starts empty. If it gets the total back but not
+the list, the next copy of <code dir="auto">u-102</code> looks new. If it gets nothing back, <code dir="auto">acme</code>
+starts the month at zero. What does the processor need to keep so that it can
+carry on after a restart?</p>
+<div class="sl-heading-wrapper level-h2"><h2 id="what-to-remember">What to remember</h2><a class="sl-anchor-link" href="#what-to-remember"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 1 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 0 0-1.42-1.42m8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 1 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 0 0 0 1.42 1 1 0 0 0 1.42 0l3.88-3.89a4.49 4.49 0 0 0 0-6.33M8.83 15.17a1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.92-4.92a1 1 0 1 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42"></path></svg></span><span class="sr-only" data-pagefind-ignore="">Section titled “What to remember”</span></a></div>
+<ul>
+<li>A sender that gets no acknowledgement cannot tell a lost record from a lost
+reply. Resending prevents loss and produces copies.</li>
+<li>A copy is recognized by the event’s ID, which is assigned once per event.
+Records with equal content can still describe different events.</li>
+<li>Deduplication keeps the result and the list of counted IDs in step and makes
+processing a record idempotent. IDs kept for a limited time protect only
+against copies that arrive within that time.</li>
+<li>Removing copies cannot recover a lost record. Delivery guarantees state which
+of the two failures is possible, and each covers one stretch of the path.</li>
+</ul>
+<div class="sl-heading-wrapper level-h2"><h2 id="references">References</h2><a class="sl-anchor-link" href="#references"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 1 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 0 0-1.42-1.42m8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 1 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 0 0 0 1.42 1 1 0 0 0 1.42 0l3.88-3.89a4.49 4.49 0 0 0 0-6.33M8.83 15.17a1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.92-4.92a1 1 0 1 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42"></path></svg></span><span class="sr-only" data-pagefind-ignore="">Section titled “References”</span></a></div><section data-footnotes="" class="footnotes" aria-label="Sources"><ol>
+<li id="user-content-fn-1">
+<p><a href="https://docs.stripe.com/webhooks#handle-duplicate-events" target="_blank" rel="noopener noreferrer">Stripe: Handle duplicate events</a>.</p>
+</li>
+<li id="user-content-fn-2">
+<p><a href="https://nightlies.apache.org/flink/flink-docs-release-2.3/docs/learn-flink/fault_tolerance/#exactly-once-guarantees" target="_blank" rel="noopener noreferrer">Apache Flink 2.3: Exactly Once Guarantees</a>.</p>
+</li>
+</ol></section>
+<div class="sl-heading-wrapper level-h2"><h2 id="further-reading">Further reading</h2><a class="sl-anchor-link" href="#further-reading"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 1 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 0 0-1.42-1.42m8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 1 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 0 0 0 1.42 1 1 0 0 0 1.42 0l3.88-3.89a4.49 4.49 0 0 0 0-6.33M8.83 15.17a1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.92-4.92a1 1 0 1 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42"></path></svg></span><span class="sr-only" data-pagefind-ignore="">Section titled “Further reading”</span></a></div>
+<ul>
+<li>Josh Fischer and Ning Wang, <em><a href="https://www.manning.com/books/grokking-streaming-systems">Grokking Streaming Systems</a></em>
+(Manning, 2022), chap. 5, “Delivery Semantics.” Builds at-most-once,
+at-least-once, and exactly-once step by step on one small job, with
+acknowledgements, checkpoints, and idempotent operations.</li>
+<li>Tyler Akidau, Slava Chernyak, and Reuven Lax, <em><a href="https://www.oreilly.com/library/view/streaming-systems/9781491983867/">Streaming Systems</a></em>
+(O’Reilly Media, 2018), chap. 5, “Exactly-Once and Side Effects.” Shows how
+a processing engine recognizes repeated records by their IDs and how it keeps
+the memory of those IDs from growing without limit.</li>
+</ul>
+</div><div class="course-progress-row"><button type="button" class="course-progress-toggle" role="switch" aria-checked="false" data-course-progress-toggle hidden><span class="course-progress" data-state="seen" aria-hidden="true"></span>Mark as read</button></div><footer class="sl-flex astro-ddtxxk7k"><div class="meta sl-flex astro-ddtxxk7k"></div><nav class="course-pagination" aria-label="Article navigation"><a href="/en/course/time/when-is-a-window-result-ready/" rel="prev"><span class="pagination-direction">← Previous</span><span class="pagination-title">When is a window result ready?</span><span class="pagination-section">Time and windows</span></a><a href="/en/course/reliability/what-must-survive-a-restart/" rel="next"><span class="pagination-direction">Next →</span><span class="pagination-title">What must survive a restart?</span><span class="pagination-section">Duplicates, loss, and recovery</span></a></nav></footer><p class="course-license astro-7g3h5dfi">© 2026 <a href="https://alexengrig.github.io" class="astro-7g3h5dfi">Grig Alex</a> · <a href="https://creativecommons.org/licenses/by-sa/4.0/" rel="license" class="astro-7g3h5dfi">CC BY-SA 4.0</a></p></div></div></main></div></div></div></div></body></html>

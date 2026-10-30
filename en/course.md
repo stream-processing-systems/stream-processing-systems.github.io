@@ -22,3 +22,10 @@ Read the articles in order: each one builds on the ones before it. Each link is 
 8. [Sliding and session windows](https://stream-processing-systems.github.io/en/course/time/sliding-and-session-windows.md): Windows that overlap, windows shaped by the data itself, and what a late record does to each.
 9. [How far has the stream progressed?](https://stream-processing-systems.github.io/en/course/time/how-far-has-the-stream-progressed.md): What a watermark tells a processor about event-time progress, and why it is an estimate.
 10. [When is a window result ready?](https://stream-processing-systems.github.io/en/course/time/when-is-a-window-result-ready.md): When a window publishes results, how long it accepts corrections, and how the receiver reads several versions of one result.
+
+## Duplicates, loss, and recovery
+
+11. [When an event arrives twice or never](https://stream-processing-systems.github.io/en/course/reliability/when-an-event-arrives-twice-or-never.md): Why a missing acknowledgement makes a sender repeat a record, how a processor recognizes the copy by its event ID, and why removing copies cannot bring back a lost record.
+12. [What must survive a restart?](https://stream-processing-systems.github.io/en/course/reliability/what-must-survive-a-restart.md): What a stream processor needs to continue after a restart: input it can read again, its state, how far it has read, and the results it has already sent.
+13. [Recovering a consistent computation](https://stream-processing-systems.github.io/en/course/reliability/recovering-a-consistent-computation.md): Why a checkpoint must save state and reading position for the same moment, why only a completed checkpoint can be trusted, and what replay assumes about the computation.
+14. [One result, one external effect?](https://stream-processing-systems.github.io/en/course/reliability/one-result-one-external-effect.md): Why recovery cannot undo a result another system has received, and how idempotent receivers, versions, and transactions make each result take effect once.

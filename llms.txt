@@ -15,6 +15,10 @@
 - [Sliding and session windows](https://stream-processing-systems.github.io/en/course/time/sliding-and-session-windows.md)
 - [How far has the stream progressed?](https://stream-processing-systems.github.io/en/course/time/how-far-has-the-stream-progressed.md)
 - [When is a window result ready?](https://stream-processing-systems.github.io/en/course/time/when-is-a-window-result-ready.md)
+- [When an event arrives twice or never](https://stream-processing-systems.github.io/en/course/reliability/when-an-event-arrives-twice-or-never.md)
+- [What must survive a restart?](https://stream-processing-systems.github.io/en/course/reliability/what-must-survive-a-restart.md)
+- [Recovering a consistent computation](https://stream-processing-systems.github.io/en/course/reliability/recovering-a-consistent-computation.md)
+- [One result, one external effect?](https://stream-processing-systems.github.io/en/course/reliability/one-result-one-external-effect.md)
 
 ## Русский
 
@@ -29,3 +33,7 @@
 - [Скользящие и сеансовые окна](https://stream-processing-systems.github.io/ru/course/time/sliding-and-session-windows.md)
 - [Насколько продвинулся поток?](https://stream-processing-systems.github.io/ru/course/time/how-far-has-the-stream-progressed.md)
 - [Когда результат окна готов?](https://stream-processing-systems.github.io/ru/course/time/when-is-a-window-result-ready.md)
+- [Когда событие приходит дважды или не приходит вовсе](https://stream-processing-systems.github.io/ru/course/reliability/when-an-event-arrives-twice-or-never.md)
+- [Что должно пережить перезапуск?](https://stream-processing-systems.github.io/ru/course/reliability/what-must-survive-a-restart.md)
+- [Восстановление согласованного вычисления](https://stream-processing-systems.github.io/ru/course/reliability/recovering-a-consistent-computation.md)
+- [Один результат — один внешний эффект?](https://stream-processing-systems.github.io/ru/course/reliability/one-result-one-external-effect.md)

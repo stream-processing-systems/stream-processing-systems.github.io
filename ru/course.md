@@ -22,3 +22,10 @@
 8. [Скользящие и сеансовые окна](https://stream-processing-systems.github.io/ru/course/time/sliding-and-session-windows.md): Окна, которые перекрываются, окна, границы которых задают сами данные, и что с каждыми делает поздняя запись.
 9. [Насколько продвинулся поток?](https://stream-processing-systems.github.io/ru/course/time/how-far-has-the-stream-progressed.md): Что водяной знак сообщает обработчику о продвижении времени события и почему это оценка.
 10. [Когда результат окна готов?](https://stream-processing-systems.github.io/ru/course/time/when-is-a-window-result-ready.md): Когда окно выдаёт результаты, как долго принимает поправки и как получателю читать несколько версий одного результата.
+
+## Повторы, потери и восстановление
+
+11. [Когда событие приходит дважды или не приходит вовсе](https://stream-processing-systems.github.io/ru/course/reliability/when-an-event-arrives-twice-or-never.md): Почему без подтверждения отправитель повторяет запись, как обработчик узнаёт копию по ID события и почему удаление копий не вернёт потерянную запись.
+12. [Что должно пережить перезапуск?](https://stream-processing-systems.github.io/ru/course/reliability/what-must-survive-a-restart.md): Что нужно потоковому обработчику, чтобы продолжить работу после перезапуска: вход, который можно прочитать снова, состояние, место, докуда он дочитал, и уже отправленные результаты.
+13. [Восстановление согласованного вычисления](https://stream-processing-systems.github.io/ru/course/reliability/recovering-a-consistent-computation.md): Почему контрольная точка должна сохранять состояние и позицию чтения для одного момента, почему доверять можно только завершённой контрольной точке и на что опирается воспроизведение.
+14. [Один результат — один внешний эффект?](https://stream-processing-systems.github.io/ru/course/reliability/one-result-one-external-effect.md): Почему восстановление не может отменить результат, который получила другая система, и как идемпотентные получатели, версии и транзакции помогают каждому результату подействовать один раз.
