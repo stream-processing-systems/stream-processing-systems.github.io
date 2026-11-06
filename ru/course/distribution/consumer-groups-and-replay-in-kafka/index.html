@@ -1,0 +1,406 @@
+<!DOCTYPE html><html lang="ru" dir="ltr" data-theme="dark" data-has-toc data-has-sidebar class="astro-g5ptsecz"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/><title>Группы потребителей и воспроизведение в Kafka | Потоковая обработка</title><link rel="canonical" href="https://stream-processing-systems.github.io/ru/course/distribution/consumer-groups-and-replay-in-kafka/"/><link rel="alternate" hreflang="en" href="https://stream-processing-systems.github.io/en/course/distribution/consumer-groups-and-replay-in-kafka/"/><link rel="alternate" hreflang="ru" href="https://stream-processing-systems.github.io/ru/course/distribution/consumer-groups-and-replay-in-kafka/"/><link rel="alternate" hreflang="x-default" href="https://stream-processing-systems.github.io/en/course/distribution/consumer-groups-and-replay-in-kafka/"/><link rel="sitemap" href="/sitemap-index.xml"/><link rel="apple-touch-icon" href="/apple-touch-icon.png"/><link rel="icon" href="/favicon.ico" sizes="32x32"/><link rel="manifest" href="/manifest.webmanifest"/><script src="/article-widgets.js" defer></script><script src="/course-progress.js" defer></script><script async src="https://www.googletagmanager.com/gtag/js?id=G-C0KBX4XM6J"></script><script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','G-C0KBX4XM6J');</script><script src="/language-preference.js" defer></script><link rel="shortcut icon" href="/favicon-32.png" type="image/png"/><meta name="generator" content="Astro v7.3.5"/><meta name="generator" content="Starlight v0.42.5"/><meta property="og:title" content="Группы потребителей и воспроизведение в Kafka"/><meta property="og:type" content="article"/><meta property="og:url" content="https://stream-processing-systems.github.io/ru/course/distribution/consumer-groups-and-replay-in-kafka/"/><meta property="og:locale" content="ru"/><meta property="og:description" content="Как Kafka делит партиции между потребителями группы и передаёт их, когда кто-то отказывает, почему зафиксированному смещению нужно подходящее состояние и как независимые группы читают одну историю и перечитывают её."/><meta property="og:site_name" content="Потоковая обработка"/><meta name="twitter:card" content="summary_large_image"/><meta name="description" content="Как Kafka делит партиции между потребителями группы и передаёт их, когда кто-то отказывает, почему зафиксированному смещению нужно подходящее состояние и как независимые группы читают одну историю и перечитывают её."/><meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)"/><meta name="theme-color" content="#2b2b30" media="(prefers-color-scheme: dark)"/><meta property="og:image" content="https://stream-processing-systems.github.io/og-image-ru.png"/><meta property="og:image:width" content="1200"/><meta property="og:image:height" content="630"/><meta name="twitter:image" content="https://stream-processing-systems.github.io/og-image-ru.png"/><script>
+	window.StarlightThemeProvider = (() => {
+		const storedTheme =
+			typeof localStorage !== 'undefined' && localStorage.getItem('starlight-theme');
+		const theme =
+			storedTheme ||
+			(window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark');
+		document.documentElement.dataset.theme = theme === 'light' ? 'light' : 'dark';
+		return {
+			updatePickers(theme = storedTheme || 'auto') {
+				document.querySelectorAll('starlight-theme-select').forEach((picker) => {
+					const select = picker.querySelector('select');
+					if (select) select.value = theme;
+					/** @type {HTMLTemplateElement | null} */
+					const tmpl = document.querySelector(`#theme-icons`);
+					const newIcon = tmpl && tmpl.content.querySelector('.' + theme);
+					if (newIcon) {
+						const oldIcon = picker.querySelector('svg.label-icon');
+						if (oldIcon) {
+							oldIcon.replaceChildren(...newIcon.cloneNode(true).childNodes);
+						}
+					}
+				});
+			},
+		};
+	})();
+</script><template id="theme-icons"><svg aria-hidden="true" class="light astro-hkc32dio" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M5 12a1 1 0 0 0-1-1H3a1 1 0 0 0 0 2h1a1 1 0 0 0 1-1Zm.64 5-.71.71a1 1 0 0 0 0 1.41 1 1 0 0 0 1.41 0l.71-.71A1 1 0 0 0 5.64 17ZM12 5a1 1 0 0 0 1-1V3a1 1 0 0 0-2 0v1a1 1 0 0 0 1 1Zm5.66 2.34a1 1 0 0 0 .7-.29l.71-.71a1 1 0 1 0-1.41-1.41l-.66.71a1 1 0 0 0 0 1.41 1 1 0 0 0 .66.29Zm-12-.29a1 1 0 0 0 1.41 0 1 1 0 0 0 0-1.41l-.71-.71a1.004 1.004 0 1 0-1.43 1.41l.73.71ZM21 11h-1a1 1 0 0 0 0 2h1a1 1 0 0 0 0-2Zm-2.64 6A1 1 0 0 0 17 18.36l.71.71a1 1 0 0 0 1.41 0 1 1 0 0 0 0-1.41l-.76-.66ZM12 6.5a5.5 5.5 0 1 0 5.5 5.5A5.51 5.51 0 0 0 12 6.5Zm0 9a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7Zm0 3.5a1 1 0 0 0-1 1v1a1 1 0 0 0 2 0v-1a1 1 0 0 0-1-1Z"/></svg><svg aria-hidden="true" class="dark astro-hkc32dio" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M21.64 13a1 1 0 0 0-1.05-.14 8.049 8.049 0 0 1-3.37.73 8.15 8.15 0 0 1-8.14-8.1 8.59 8.59 0 0 1 .25-2A1 1 0 0 0 8 2.36a10.14 10.14 0 1 0 14 11.69 1 1 0 0 0-.36-1.05Zm-9.5 6.69A8.14 8.14 0 0 1 7.08 5.22v.27a10.15 10.15 0 0 0 10.14 10.14 9.784 9.784 0 0 0 2.1-.22 8.11 8.11 0 0 1-7.18 4.32v-.04Z"/></svg><svg aria-hidden="true" class="auto astro-hkc32dio" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M21 14h-1V7a3 3 0 0 0-3-3H7a3 3 0 0 0-3 3v7H3a1 1 0 0 0-1 1v2a3 3 0 0 0 3 3h14a3 3 0 0 0 3-3v-2a1 1 0 0 0-1-1ZM6 7a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v7H6V7Zm14 10a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-1h16v1Z"/></svg></template><link rel="stylesheet" href="/_astro/print.ehPL0gv-.css" media="print"><link rel="stylesheet" href="/_astro/index.DGaUXbc6.css"><script type="module" src="/_astro/page.Dwipeu-R.js"></script></head><body class="astro-g5ptsecz"><a class="sl-skip-link astro-qb7clj6f" href="#_top">Перейти к содержимому</a><div class="page sl-flex astro-jvulkizc"><header class="header astro-jvulkizc"><div class="header astro-by6fddyj"><div class="title-wrapper sl-flex astro-by6fddyj"><a href="/ru" class="site-title sl-flex astro-6rvad3va"><img class="astro-6rvad3va" alt src="/_astro/logo.DKQKHWKq.png" width="192" height="192"><span class="astro-6rvad3va" translate="no">Потоковая обработка</span></a></div><div class="sl-flex print:hidden astro-by6fddyj"><site-search class="astro-223fx62r astro-b5kgnn7o" data-translations="{&quot;placeholder&quot;:&quot;Поиск&quot;,&quot;clear_search&quot;:&quot;Очистить&quot;,&quot;load_more&quot;:&quot;Показать ещё&quot;,&quot;search_label&quot;:&quot;Поиск по сайту&quot;,&quot;filters_label&quot;:&quot;Фильтры&quot;,&quot;zero_results&quot;:&quot;Ничего не найдено по запросу «[SEARCH_TERM]»&quot;,&quot;many_results&quot;:&quot;Найдено: [COUNT] по запросу «[SEARCH_TERM]»&quot;,&quot;one_result&quot;:&quot;Найдено: [COUNT] по запросу «[SEARCH_TERM]»&quot;,&quot;alt_search&quot;:&quot;Ничего не найдено по запросу «[SEARCH_TERM]». Результаты для «[DIFFERENT_TERM]»&quot;,&quot;search_suggestion&quot;:&quot;Ничего не найдено по запросу «[SEARCH_TERM]». Попробуйте другой запрос:&quot;,&quot;searching&quot;:&quot;Поиск «[SEARCH_TERM]»…&quot;}"><button data-open-modal disabled aria-label="Поиск" aria-keyshortcuts="Control+K" class="astro-b5kgnn7o"><svg aria-hidden="true" class="astro-b5kgnn7o astro-hkc32dio" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M21.71 20.29 18 16.61A9 9 0 1 0 16.61 18l3.68 3.68a.999.999 0 0 0 1.42 0 1 1 0 0 0 0-1.39ZM11 18a7 7 0 1 1 0-14 7 7 0 0 1 0 14Z"/></svg><span class="sl-hidden md:sl-block astro-b5kgnn7o" aria-hidden="true">Поиск</span><kbd class="sl-hidden md:sl-flex astro-b5kgnn7o" style="display: none;"><kbd class="astro-b5kgnn7o">Ctrl</kbd><kbd class="astro-b5kgnn7o">K</kbd></kbd></button><dialog style="padding:0" aria-label="Поиск" class="astro-b5kgnn7o"><div class="dialog-frame sl-flex astro-b5kgnn7o"><button data-close-modal class="sl-flex md:sl-hidden astro-b5kgnn7o">Отменить</button><div class="search-container astro-b5kgnn7o"><div id="starlight__search" class="astro-b5kgnn7o"></div></div></div></dialog></site-search><script>
+	(() => {
+		const openBtn = document.querySelector('button[data-open-modal]');
+		const shortcut = openBtn?.querySelector('kbd');
+		if (!openBtn || !(shortcut instanceof HTMLElement)) return;
+		const platformKey = shortcut.querySelector('kbd');
+		if (platformKey && /(Mac|iPhone|iPod|iPad)/i.test(navigator.platform)) {
+			platformKey.textContent = '⌘';
+			openBtn.setAttribute('aria-keyshortcuts', 'Meta+K');
+		}
+		shortcut.style.display = '';
+	})();
+</script><script type="module" src="/_astro/Search.astro_astro_type_script_index_0_lang.Bumivpjo.js"></script><div class="course-search-start astro-223fx62r" hidden><p class="course-search-start-heading astro-223fx62r">С чего начать</p><ul class="astro-223fx62r"><li class="astro-223fx62r"><a href="/ru/course/introduction/why-stream-processing/" class="astro-223fx62r"><span class="course-search-start-section astro-223fx62r">Введение</span><span class="course-search-start-title astro-223fx62r">Зачем нужна потоковая обработка?</span></a></li><li class="astro-223fx62r"><a href="/ru/course/fundamentals/what-does-an-event-tell-us/" class="astro-223fx62r"><span class="course-search-start-section astro-223fx62r">Основы</span><span class="course-search-start-title astro-223fx62r">Что сообщает событие?</span></a></li><li class="astro-223fx62r"><a href="/ru/course/time/event-time-and-processing-time/" class="astro-223fx62r"><span class="course-search-start-section astro-223fx62r">Время и окна</span><span class="course-search-start-title astro-223fx62r">Время события и время обработки</span></a></li><li class="astro-223fx62r"><a href="/ru/course/reliability/when-an-event-arrives-twice-or-never/" class="astro-223fx62r"><span class="course-search-start-section astro-223fx62r">Повторы, потери и восстановление</span><span class="course-search-start-title astro-223fx62r">Когда событие приходит дважды или не приходит вовсе</span></a></li><li class="astro-223fx62r"><a href="/ru/course/distribution/a-queue-or-a-log/" class="astro-223fx62r"><span class="course-search-start-section astro-223fx62r">Распределённая обработка и журнал</span><span class="course-search-start-title astro-223fx62r">Очередь или журнал?</span></a></li></ul></div><script type="module">var e=document.querySelector(`.course-search-start`),t=document.querySelector(`site-search .search-container`);e&&t&&(t.append(e),e.hidden=!1);</script></div><div class="sl-hidden md:sl-flex print:hidden right-group astro-by6fddyj"><div class="sl-flex social-icons astro-by6fddyj"></div><course-theme-toggle class="astro-e52pfzt5"><button type="button" class="course-theme-toggle astro-e52pfzt5" aria-label="Переключить тему" title="Переключить тему"><svg aria-hidden="true" class="course-theme-icon course-theme-moon astro-e52pfzt5 astro-hkc32dio" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M21.64 13a1 1 0 0 0-1.05-.14 8.049 8.049 0 0 1-3.37.73 8.15 8.15 0 0 1-8.14-8.1 8.59 8.59 0 0 1 .25-2A1 1 0 0 0 8 2.36a10.14 10.14 0 1 0 14 11.69 1 1 0 0 0-.36-1.05Zm-9.5 6.69A8.14 8.14 0 0 1 7.08 5.22v.27a10.15 10.15 0 0 0 10.14 10.14 9.784 9.784 0 0 0 2.1-.22 8.11 8.11 0 0 1-7.18 4.32v-.04Z"/></svg><svg aria-hidden="true" class="course-theme-icon course-theme-sun astro-e52pfzt5 astro-hkc32dio" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M5 12a1 1 0 0 0-1-1H3a1 1 0 0 0 0 2h1a1 1 0 0 0 1-1Zm.64 5-.71.71a1 1 0 0 0 0 1.41 1 1 0 0 0 1.41 0l.71-.71A1 1 0 0 0 5.64 17ZM12 5a1 1 0 0 0 1-1V3a1 1 0 0 0-2 0v1a1 1 0 0 0 1 1Zm5.66 2.34a1 1 0 0 0 .7-.29l.71-.71a1 1 0 1 0-1.41-1.41l-.66.71a1 1 0 0 0 0 1.41 1 1 0 0 0 .66.29Zm-12-.29a1 1 0 0 0 1.41 0 1 1 0 0 0 0-1.41l-.71-.71a1.004 1.004 0 1 0-1.43 1.41l.73.71ZM21 11h-1a1 1 0 0 0 0 2h1a1 1 0 0 0 0-2Zm-2.64 6A1 1 0 0 0 17 18.36l.71.71a1 1 0 0 0 1.41 0 1 1 0 0 0 0-1.41l-.76-.66ZM12 6.5a5.5 5.5 0 1 0 5.5 5.5A5.51 5.51 0 0 0 12 6.5Zm0 9a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7Zm0 3.5a1 1 0 0 0-1 1v1a1 1 0 0 0 2 0v-1a1 1 0 0 0-1-1Z"/></svg></button></course-theme-toggle><script type="module">var e=`starlight-theme`,t=()=>matchMedia(`(prefers-color-scheme: light)`).matches?`light`:`dark`,n=class extends HTMLElement{constructor(){super(),this.querySelector(`button`)?.addEventListener(`click`,()=>{let t=document.documentElement.dataset.theme===`light`?`dark`:`light`;document.documentElement.dataset.theme=t;try{localStorage.setItem(e,t)}catch{}})}};customElements.define(`course-theme-toggle`,n),matchMedia(`(prefers-color-scheme: light)`).addEventListener(`change`,()=>{let n=null;try{n=localStorage.getItem(e)}catch{}n!==`light`&&n!==`dark`&&(document.documentElement.dataset.theme=t())});</script><course-language-switch class="course-language-switch astro-e5tdbfla"><button type="button" class="course-language-button astro-e5tdbfla" aria-haspopup="true" aria-expanded="false" aria-label="Выбрать язык" title="Выбрать язык">RU</button><ul class="course-language-menu astro-e5tdbfla" hidden><li class="astro-e5tdbfla"><a href="/en/course/distribution/consumer-groups-and-replay-in-kafka/" hreflang="en" lang="en" class="astro-e5tdbfla">English</a></li></ul></course-language-switch><script type="module">var e=class extends HTMLElement{constructor(){super();let e=this.querySelector(`button`),t=this.querySelector(`ul`);if(!e||!t)return;let n=n=>{t.hidden=!n,e.setAttribute(`aria-expanded`,String(n))};e.addEventListener(`click`,()=>n(t.hidden)),document.addEventListener(`click`,e=>{this.contains(e.target)||n(!1)}),this.addEventListener(`keydown`,t=>{t.key===`Escape`&&(n(!1),e.focus())})}};customElements.define(`course-language-switch`,e);</script></div></div></header><nav class="sidebar print:hidden astro-jvulkizc" aria-label="Основное"><button popovertarget="starlight__sidebar" class="sl-menu-button sl-flex lg:sl-hidden print:hidden astro-typaf3vk"><svg aria-hidden="true" class="open-menu astro-typaf3vk astro-hkc32dio" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M3 8h18a1 1 0 1 0 0-2H3a1 1 0 0 0 0 2Zm18 8H3a1 1 0 0 0 0 2h18a1 1 0 0 0 0-2Zm0-5H3a1 1 0 0 0 0 2h18a1 1 0 0 0 0-2Z"/></svg><svg aria-hidden="true" class="close-menu astro-typaf3vk astro-hkc32dio" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="m13.41 12 6.3-6.29a1.004 1.004 0 1 0-1.42-1.42L12 10.59l-6.29-6.3a1.004 1.004 0 0 0-1.42 1.42l6.3 6.29-6.3 6.29a1 1 0 0 0 0 1.42.998.998 0 0 0 1.42 0l6.29-6.3 6.29 6.3a.999.999 0 0 0 1.42 0 1 1 0 0 0 0-1.42L13.41 12Z"/></svg><span class="sr-only astro-typaf3vk">Меню</span></button><script type="module">var e=class extends HTMLElement{constructor(){super();let e=matchMedia(`(min-width: 72em)`),t=()=>{this.popover=e.matches?null:`auto`};t(),e.addEventListener(`change`,()=>t()),this.addEventListener(`toggle`,({newState:e})=>this.trapFocus(e===`open`))}trapFocus(e){document.querySelectorAll(`.main-frame, .sl-skip-link`).forEach(t=>{t.toggleAttribute(`inert`,e)})}};customElements.define(`sl-sidebar-pane`,e);</script><sl-sidebar-pane popover id="starlight__sidebar" class="sidebar-pane astro-jvulkizc"><div class="sidebar-content sl-flex astro-jvulkizc"><div class="course-sidebar-brand astro-6vmd22lb"><a href="/ru" class="site-title sl-flex astro-6rvad3va"><img class="astro-6rvad3va" alt src="/_astro/logo.DKQKHWKq.png" width="192" height="192"><span class="astro-6rvad3va" translate="no">Потоковая обработка</span></a></div><sl-sidebar-state-persist data-hash="1snzsff" class="astro-ipdry5cl"><script aria-hidden="true">
+		(() => {
+			try {
+				if (!matchMedia('(min-width: 50em)').matches) return;
+				/** @type {HTMLElement | null} */
+				const target = document.querySelector('sl-sidebar-state-persist');
+				const state = JSON.parse(sessionStorage.getItem('sl-sidebar-state') || '0');
+				if (!target || !state || target.dataset.hash !== state.hash) return;
+				window._starlightScrollRestore = state.scroll;
+				customElements.define(
+					'sl-sidebar-restore',
+					class SidebarRestore extends HTMLElement {
+						connectedCallback() {
+							try {
+								const idx = parseInt(this.dataset.index || '');
+								const details = this.closest('details');
+								if (details && typeof state.open[idx] === 'boolean') details.open = state.open[idx];
+							} catch {}
+						}
+					}
+				);
+			} catch {}
+		})();
+	</script><ul class="top-level astro-rmhv4bp6"><li class="astro-rmhv4bp6"><details open class="astro-rmhv4bp6"><summary class="astro-rmhv4bp6"><span class="group-label astro-rmhv4bp6"><span class="large astro-rmhv4bp6">Введение</span></span><svg aria-hidden="true" class="caret astro-rmhv4bp6 astro-hkc32dio" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.25rem;"><path d="m14.83 11.29-4.24-4.24a1 1 0 1 0-1.42 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41 1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.24-4.24a1.002 1.002 0 0 0 0-1.42Z"/></svg></summary><sl-sidebar-restore data-index="0"></sl-sidebar-restore><ul class="astro-rmhv4bp6"><li class="astro-rmhv4bp6"><a href="/ru/course/introduction/why-stream-processing/" class="astro-rmhv4bp6"><span class="astro-rmhv4bp6">Зачем нужна потоковая обработка?</span></a></li></ul></details></li><li class="astro-rmhv4bp6"><details open class="astro-rmhv4bp6"><summary class="astro-rmhv4bp6"><span class="group-label astro-rmhv4bp6"><span class="large astro-rmhv4bp6">Основы</span></span><svg aria-hidden="true" class="caret astro-rmhv4bp6 astro-hkc32dio" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.25rem;"><path d="m14.83 11.29-4.24-4.24a1 1 0 1 0-1.42 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41 1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.24-4.24a1.002 1.002 0 0 0 0-1.42Z"/></svg></summary><sl-sidebar-restore data-index="1"></sl-sidebar-restore><ul class="astro-rmhv4bp6"><li class="astro-rmhv4bp6"><a href="/ru/course/fundamentals/what-does-an-event-tell-us/" class="astro-rmhv4bp6"><span class="astro-rmhv4bp6">Что сообщает событие?</span></a></li><li class="astro-rmhv4bp6"><a href="/ru/course/fundamentals/from-events-to-results/" class="astro-rmhv4bp6"><span class="astro-rmhv4bp6">От событий к результату</span></a></li><li class="astro-rmhv4bp6"><a href="/ru/course/fundamentals/when-one-event-is-not-enough/" class="astro-rmhv4bp6"><span class="astro-rmhv4bp6">Когда одного события недостаточно</span></a></li><li class="astro-rmhv4bp6"><a href="/ru/course/fundamentals/grouping-events-by-key/" class="astro-rmhv4bp6"><span class="astro-rmhv4bp6">Группировка событий по ключу</span></a></li></ul></details></li><li class="astro-rmhv4bp6"><details open class="astro-rmhv4bp6"><summary class="astro-rmhv4bp6"><span class="group-label astro-rmhv4bp6"><span class="large astro-rmhv4bp6">Время и окна</span></span><svg aria-hidden="true" class="caret astro-rmhv4bp6 astro-hkc32dio" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.25rem;"><path d="m14.83 11.29-4.24-4.24a1 1 0 1 0-1.42 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41 1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.24-4.24a1.002 1.002 0 0 0 0-1.42Z"/></svg></summary><sl-sidebar-restore data-index="2"></sl-sidebar-restore><ul class="astro-rmhv4bp6"><li class="astro-rmhv4bp6"><a href="/ru/course/time/event-time-and-processing-time/" class="astro-rmhv4bp6"><span class="astro-rmhv4bp6">Время события и время обработки</span></a></li><li class="astro-rmhv4bp6"><a href="/ru/course/time/putting-events-into-time-windows/" class="astro-rmhv4bp6"><span class="astro-rmhv4bp6">Как разложить события по временным окнам</span></a></li><li class="astro-rmhv4bp6"><a href="/ru/course/time/sliding-and-session-windows/" class="astro-rmhv4bp6"><span class="astro-rmhv4bp6">Скользящие и сеансовые окна</span></a></li><li class="astro-rmhv4bp6"><a href="/ru/course/time/how-far-has-the-stream-progressed/" class="astro-rmhv4bp6"><span class="astro-rmhv4bp6">Насколько продвинулся поток?</span></a></li><li class="astro-rmhv4bp6"><a href="/ru/course/time/when-is-a-window-result-ready/" class="astro-rmhv4bp6"><span class="astro-rmhv4bp6">Когда результат окна готов?</span></a></li></ul></details></li><li class="astro-rmhv4bp6"><details open class="astro-rmhv4bp6"><summary class="astro-rmhv4bp6"><span class="group-label astro-rmhv4bp6"><span class="large astro-rmhv4bp6">Повторы, потери и восстановление</span></span><svg aria-hidden="true" class="caret astro-rmhv4bp6 astro-hkc32dio" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.25rem;"><path d="m14.83 11.29-4.24-4.24a1 1 0 1 0-1.42 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41 1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.24-4.24a1.002 1.002 0 0 0 0-1.42Z"/></svg></summary><sl-sidebar-restore data-index="3"></sl-sidebar-restore><ul class="astro-rmhv4bp6"><li class="astro-rmhv4bp6"><a href="/ru/course/reliability/when-an-event-arrives-twice-or-never/" class="astro-rmhv4bp6"><span class="astro-rmhv4bp6">Когда событие приходит дважды или не приходит вовсе</span></a></li><li class="astro-rmhv4bp6"><a href="/ru/course/reliability/what-must-survive-a-restart/" class="astro-rmhv4bp6"><span class="astro-rmhv4bp6">Что должно пережить перезапуск?</span></a></li><li class="astro-rmhv4bp6"><a href="/ru/course/reliability/recovering-a-consistent-computation/" class="astro-rmhv4bp6"><span class="astro-rmhv4bp6">Восстановление согласованного вычисления</span></a></li><li class="astro-rmhv4bp6"><a href="/ru/course/reliability/one-result-one-external-effect/" class="astro-rmhv4bp6"><span class="astro-rmhv4bp6">Один результат — один внешний эффект?</span></a></li></ul></details></li><li class="astro-rmhv4bp6"><details open class="astro-rmhv4bp6"><summary class="astro-rmhv4bp6"><span class="group-label astro-rmhv4bp6"><span class="large astro-rmhv4bp6">Распределённая обработка и журнал</span></span><svg aria-hidden="true" class="caret astro-rmhv4bp6 astro-hkc32dio" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.25rem;"><path d="m14.83 11.29-4.24-4.24a1 1 0 1 0-1.42 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41 1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.24-4.24a1.002 1.002 0 0 0 0-1.42Z"/></svg></summary><sl-sidebar-restore data-index="4"></sl-sidebar-restore><ul class="astro-rmhv4bp6"><li class="astro-rmhv4bp6"><a href="/ru/course/distribution/a-queue-or-a-log/" class="astro-rmhv4bp6"><span class="astro-rmhv4bp6">Очередь или журнал?</span></a></li><li class="astro-rmhv4bp6"><a href="/ru/course/distribution/splitting-a-log-into-partitions/" class="astro-rmhv4bp6"><span class="astro-rmhv4bp6">Разделение журнала на партиции</span></a></li><li class="astro-rmhv4bp6"><a href="/ru/course/distribution/topics-partitions-and-offsets-in-kafka/" class="astro-rmhv4bp6"><span class="astro-rmhv4bp6">Топики, партиции и смещения в Kafka</span></a></li><li class="astro-rmhv4bp6"><a href="/ru/course/distribution/consumer-groups-and-replay-in-kafka/" aria-current="page" class="astro-rmhv4bp6"><span class="astro-rmhv4bp6">Группы потребителей и воспроизведение в Kafka</span></a></li><li class="astro-rmhv4bp6"><a href="/ru/course/distribution/how-long-does-kafka-keep-history/" class="astro-rmhv4bp6"><span class="astro-rmhv4bp6">Как долго Kafka хранит историю?</span></a></li><li class="astro-rmhv4bp6"><a href="/ru/course/distribution/capturing-changes-from-a-database/" class="astro-rmhv4bp6"><span class="astro-rmhv4bp6">Захват изменений из базы данных</span></a></li></ul></details></li></ul><script aria-hidden="true">
+		(() => {
+			const scroller = document.getElementById('starlight__sidebar');
+			if (!window._starlightScrollRestore || !scroller) return;
+			scroller.scrollTop = window._starlightScrollRestore;
+			delete window._starlightScrollRestore;
+		})();
+	</script></sl-sidebar-state-persist><div class="md:sl-hidden"><div class="mobile-preferences sl-flex astro-p4azlveh"><div class="social-icons astro-p4azlveh"></div><course-theme-toggle class="astro-e52pfzt5"><button type="button" class="course-theme-toggle astro-e52pfzt5" aria-label="Переключить тему" title="Переключить тему"><svg aria-hidden="true" class="course-theme-icon course-theme-moon astro-e52pfzt5 astro-hkc32dio" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M21.64 13a1 1 0 0 0-1.05-.14 8.049 8.049 0 0 1-3.37.73 8.15 8.15 0 0 1-8.14-8.1 8.59 8.59 0 0 1 .25-2A1 1 0 0 0 8 2.36a10.14 10.14 0 1 0 14 11.69 1 1 0 0 0-.36-1.05Zm-9.5 6.69A8.14 8.14 0 0 1 7.08 5.22v.27a10.15 10.15 0 0 0 10.14 10.14 9.784 9.784 0 0 0 2.1-.22 8.11 8.11 0 0 1-7.18 4.32v-.04Z"/></svg><svg aria-hidden="true" class="course-theme-icon course-theme-sun astro-e52pfzt5 astro-hkc32dio" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M5 12a1 1 0 0 0-1-1H3a1 1 0 0 0 0 2h1a1 1 0 0 0 1-1Zm.64 5-.71.71a1 1 0 0 0 0 1.41 1 1 0 0 0 1.41 0l.71-.71A1 1 0 0 0 5.64 17ZM12 5a1 1 0 0 0 1-1V3a1 1 0 0 0-2 0v1a1 1 0 0 0 1 1Zm5.66 2.34a1 1 0 0 0 .7-.29l.71-.71a1 1 0 1 0-1.41-1.41l-.66.71a1 1 0 0 0 0 1.41 1 1 0 0 0 .66.29Zm-12-.29a1 1 0 0 0 1.41 0 1 1 0 0 0 0-1.41l-.71-.71a1.004 1.004 0 1 0-1.43 1.41l.73.71ZM21 11h-1a1 1 0 0 0 0 2h1a1 1 0 0 0 0-2Zm-2.64 6A1 1 0 0 0 17 18.36l.71.71a1 1 0 0 0 1.41 0 1 1 0 0 0 0-1.41l-.76-.66ZM12 6.5a5.5 5.5 0 1 0 5.5 5.5A5.51 5.51 0 0 0 12 6.5Zm0 9a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7Zm0 3.5a1 1 0 0 0-1 1v1a1 1 0 0 0 2 0v-1a1 1 0 0 0-1-1Z"/></svg></button></course-theme-toggle><course-language-switch class="course-language-switch astro-e5tdbfla"><button type="button" class="course-language-button astro-e5tdbfla" aria-haspopup="true" aria-expanded="false" aria-label="Выбрать язык" title="Выбрать язык">RU</button><ul class="course-language-menu astro-e5tdbfla" hidden><li class="astro-e5tdbfla"><a href="/en/course/distribution/consumer-groups-and-replay-in-kafka/" hreflang="en" lang="en" class="astro-e5tdbfla">English</a></li></ul></course-language-switch></div></div></div></sl-sidebar-pane></nav><div class="main-frame astro-jvulkizc"><script type="module">var e=document.getElementById(`starlight__sidebar`),t=e?.querySelector(`sl-sidebar-state-persist`),n=`sl-sidebar-state`,r=()=>{let r=[],i=t?.dataset.hash||``;try{let e=sessionStorage.getItem(n),t=JSON.parse(e||`{}`);Array.isArray(t.open)&&t.hash===i&&(r=t.open)}catch{}return{hash:i,open:r,scroll:e?.scrollTop||0}},i=e=>{try{sessionStorage.setItem(n,JSON.stringify(e))}catch{}},a=()=>i(r()),o=(e,t)=>{let n=r();n.open[t]=e,i(n)};t?.addEventListener(`click`,e=>{if(!(e.target instanceof Element))return;let t=e.target.closest(`summary`)?.closest(`details`);if(!t)return;let n=t.querySelector(`sl-sidebar-restore`),r=parseInt(n?.dataset.index||``);isNaN(r)||o(!t.open,r)}),addEventListener(`visibilitychange`,()=>{document.visibilityState===`hidden`&&a()});</script><div class="md:sl-flex astro-z2restcr"><aside class="right-sidebar-container print:hidden astro-z2restcr"><div class="right-sidebar astro-z2restcr"><div class="md:sl-hidden astro-6c243z32"><mobile-starlight-toc data-min-h="2" data-max-h="3" class="astro-66cqc7ze"><nav aria-labelledby="starlight__on-this-page--mobile" class="astro-66cqc7ze"><details id="starlight__mobile-toc" class="astro-66cqc7ze"><summary id="starlight__on-this-page--mobile" class="sl-flex astro-66cqc7ze"><span class="toggle sl-flex astro-66cqc7ze">На этой странице<svg aria-hidden="true" class="caret astro-66cqc7ze astro-hkc32dio" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1rem;"><path d="m14.83 11.29-4.24-4.24a1 1 0 1 0-1.42 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41 1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.24-4.24a1.002 1.002 0 0 0 0-1.42Z"/></svg></span><span class="display-current astro-66cqc7ze"></span></summary><div class="dropdown astro-66cqc7ze"><ul class="isMobile astro-jugkfwgx" style="--depth: 0;"><li style="--depth: 0;" class="astro-jugkfwgx"><a href="#_top" style="--depth: 0;" class="astro-jugkfwgx"><span style="--depth: 0;" class="astro-jugkfwgx">Обзор</span></a></li><li style="--depth: 0;" class="astro-jugkfwgx"><a href="#группа-делит-партиции" style="--depth: 0;" class="astro-jugkfwgx"><span style="--depth: 0;" class="astro-jugkfwgx">Группа делит партиции</span></a></li><li style="--depth: 0;" class="astro-jugkfwgx"><a href="#когда-потребитель-уходит-или-приходит" style="--depth: 0;" class="astro-jugkfwgx"><span style="--depth: 0;" class="astro-jugkfwgx">Когда потребитель уходит или приходит</span></a></li><li style="--depth: 0;" class="astro-jugkfwgx"><a href="#зафиксированные-смещения" style="--depth: 0;" class="astro-jugkfwgx"><span style="--depth: 0;" class="astro-jugkfwgx">Зафиксированные смещения</span></a></li><li style="--depth: 0;" class="astro-jugkfwgx"><a href="#смещение-без-состояния" style="--depth: 0;" class="astro-jugkfwgx"><span style="--depth: 0;" class="astro-jugkfwgx">Смещение без состояния</span></a></li><li style="--depth: 0;" class="astro-jugkfwgx"><a href="#независимые-читатели" style="--depth: 0;" class="astro-jugkfwgx"><span style="--depth: 0;" class="astro-jugkfwgx">Независимые читатели</span></a></li><li style="--depth: 0;" class="astro-jugkfwgx"><a href="#воспроизведение-по-решению" style="--depth: 0;" class="astro-jugkfwgx"><span style="--depth: 0;" class="astro-jugkfwgx">Воспроизведение по решению</span></a></li><li style="--depth: 0;" class="astro-jugkfwgx"><a href="#что-запомнить" style="--depth: 0;" class="astro-jugkfwgx"><span style="--depth: 0;" class="astro-jugkfwgx">Что запомнить</span></a></li><li style="--depth: 0;" class="astro-jugkfwgx"><a href="#источники" style="--depth: 0;" class="astro-jugkfwgx"><span style="--depth: 0;" class="astro-jugkfwgx">Источники</span></a></li><li style="--depth: 0;" class="astro-jugkfwgx"><a href="#что-почитать" style="--depth: 0;" class="astro-jugkfwgx"><span style="--depth: 0;" class="astro-jugkfwgx">Что почитать</span></a></li></ul></div></details></nav></mobile-starlight-toc><script type="module" src="/_astro/MobileTableOfContents.astro_astro_type_script_index_0_lang.C3fM4Kra.js"></script></div><div class="right-sidebar-panel sl-hidden md:sl-block astro-6c243z32"><div class="sl-container astro-6c243z32"><starlight-toc data-min-h="2" data-max-h="3"><nav aria-labelledby="starlight__on-this-page"><h2 id="starlight__on-this-page">На этой странице</h2><ul class="astro-jugkfwgx" style="--depth: 0;"><li style="--depth: 0;" class="astro-jugkfwgx"><a href="#_top" style="--depth: 0;" class="astro-jugkfwgx"><span style="--depth: 0;" class="astro-jugkfwgx">Обзор</span></a></li><li style="--depth: 0;" class="astro-jugkfwgx"><a href="#группа-делит-партиции" style="--depth: 0;" class="astro-jugkfwgx"><span style="--depth: 0;" class="astro-jugkfwgx">Группа делит партиции</span></a></li><li style="--depth: 0;" class="astro-jugkfwgx"><a href="#когда-потребитель-уходит-или-приходит" style="--depth: 0;" class="astro-jugkfwgx"><span style="--depth: 0;" class="astro-jugkfwgx">Когда потребитель уходит или приходит</span></a></li><li style="--depth: 0;" class="astro-jugkfwgx"><a href="#зафиксированные-смещения" style="--depth: 0;" class="astro-jugkfwgx"><span style="--depth: 0;" class="astro-jugkfwgx">Зафиксированные смещения</span></a></li><li style="--depth: 0;" class="astro-jugkfwgx"><a href="#смещение-без-состояния" style="--depth: 0;" class="astro-jugkfwgx"><span style="--depth: 0;" class="astro-jugkfwgx">Смещение без состояния</span></a></li><li style="--depth: 0;" class="astro-jugkfwgx"><a href="#независимые-читатели" style="--depth: 0;" class="astro-jugkfwgx"><span style="--depth: 0;" class="astro-jugkfwgx">Независимые читатели</span></a></li><li style="--depth: 0;" class="astro-jugkfwgx"><a href="#воспроизведение-по-решению" style="--depth: 0;" class="astro-jugkfwgx"><span style="--depth: 0;" class="astro-jugkfwgx">Воспроизведение по решению</span></a></li><li style="--depth: 0;" class="astro-jugkfwgx"><a href="#что-запомнить" style="--depth: 0;" class="astro-jugkfwgx"><span style="--depth: 0;" class="astro-jugkfwgx">Что запомнить</span></a></li><li style="--depth: 0;" class="astro-jugkfwgx"><a href="#источники" style="--depth: 0;" class="astro-jugkfwgx"><span style="--depth: 0;" class="astro-jugkfwgx">Источники</span></a></li><li style="--depth: 0;" class="astro-jugkfwgx"><a href="#что-почитать" style="--depth: 0;" class="astro-jugkfwgx"><span style="--depth: 0;" class="astro-jugkfwgx">Что почитать</span></a></li></ul></nav></starlight-toc><script type="module" src="/_astro/TableOfContents.astro_astro_type_script_index_0_lang.BpJaGz7G.js"></script></div></div><script type="module">async function e(){let e=document.querySelector(`starlight-toc`);if(!e)return;let t=[...e.querySelectorAll(`a[href^="#"]`)].map(e=>document.getElementById(decodeURIComponent(e.hash.slice(1)))).filter(e=>e!==null);if(t.length<2)return;await document.fonts.ready;let n=()=>{let e=parseFloat(getComputedStyle(document.documentElement).scrollPaddingTop)||0,n=t[0];for(let r of t){let t=parseFloat(getComputedStyle(r).scrollMarginTop)||0;if(r.getBoundingClientRect().top>e+t+2)break;n=r}let r=new URL(window.location.href);r.hash=n.id===`_top`?``:n.id,r.href!==window.location.href&&history.replaceState(history.state,``,r)},r;requestAnimationFrame(()=>{window.addEventListener(`scroll`,()=>{clearTimeout(r),r=setTimeout(n,150)},{passive:!0})})}e();</script></div></aside><div class="main-pane astro-z2restcr"><main data-pagefind-body class="astro-g5ptsecz" lang="ru" dir="ltr"><div class="content-panel astro-a7po4psb"><div class="sl-container astro-a7po4psb"><div class="article-heading astro-rpssgujp"><p class="article-section astro-rpssgujp">Распределённая обработка и журнал</p><h1 id="_top" class="astro-rpssgujp">Группы потребителей и воспроизведение в Kafka</h1><p class="article-description astro-rpssgujp">Как Kafka делит партиции между потребителями группы и передаёт их, когда кто-то отказывает, почему зафиксированному смещению нужно подходящее состояние и как независимые группы читают одну историю и перечитывают её.</p><details class="course-ai astro-rpssgujp"><summary class="astro-rpssgujp">Изучать с ИИ-ассистентом 🤖</summary><div class="course-ai-body astro-rpssgujp"><p class="course-ai-hint astro-g73rzpxe">Скопируйте промпт и вставьте его в чат с ИИ-ассистентом.</p><div class="expressive-code astro-g73rzpxe"><link rel="stylesheet" href="/_astro/ec.w36nc.css"><script type="module" src="/_astro/ec.0vx5m.js"></script><figure class="frame not-content"><figcaption class="header"></figcaption><pre data-language="text" class="wrap" style="--ecMaxLine:224ch"><code><div class="ec-line"><div class="code"><span style="--0:#d6deeb;--1:#403f53">Ты — преподаватель курса «Потоковая обработка».</span></div></div><div class="ec-line"><div class="code"><span style="--0:#d6deeb;--1:#403f53">Тема: «Группы потребителей и воспроизведение в Kafka»</span></div></div><div class="ec-line"><div class="code"><span style="--0:#d6deeb;--1:#403f53">О чём: Как Kafka делит партиции между потребителями группы и передаёт их, когда кто-то отказывает, почему зафиксированному смещению нужно подходящее состояние и как независимые группы читают одну историю и перечитывают её.</span></div></div><div class="ec-line"><div class="code"><span style="--0:#d6deeb;--1:#403f53">Текст статьи в Markdown: https://stream-processing-systems.github.io/ru/course/distribution/consumer-groups-and-replay-in-kafka.md</span></div></div><div class="ec-line"><div class="code"><span style="--0:#d6deeb;--1:#403f53">Опирайся на эту статью. Сначала спроси, как мне удобнее: кратко, пошагово или глубоко с вопросами на понимание. Объясняй на примере из статьи и в её терминах. Если добавляешь сведения, которых в статье нет, явно это отмечай.</span></div></div></code></pre><div class="copy"><div aria-live="polite"></div><button title="Копировать" data-copied="Скопировано!" data-code="Ты — преподаватель курса «Потоковая обработка».Тема: «Группы потребителей и воспроизведение в Kafka»О чём: Как Kafka делит партиции между потребителями группы и передаёт их, когда кто-то отказывает, почему зафиксированному смещению нужно подходящее состояние и как независимые группы читают одну историю и перечитывают её.Текст статьи в Markdown: https://stream-processing-systems.github.io/ru/course/distribution/consumer-groups-and-replay-in-kafka.mdОпирайся на эту статью. Сначала спроси, как мне удобнее: кратко, пошагово или глубоко с вопросами на понимание. Объясняй на примере из статьи и в её терминах. Если добавляешь сведения, которых в статье нет, явно это отмечай."><div></div></button></div></figure></div></div></details></div></div></div><div class="content-panel astro-a7po4psb"><div class="sl-container astro-a7po4psb"><div class="sl-markdown-content" data-course-widgets data-widget-labels="{&quot;close&quot;:&quot;Закрыть&quot;,&quot;definition&quot;:&quot;Определение:&quot;,&quot;diagram&quot;:&quot;Просмотр диаграммы&quot;,&quot;zoomIn&quot;:&quot;Увеличить&quot;,&quot;zoomOut&quot;:&quot;Уменьшить&quot;,&quot;fit&quot;:&quot;Вписать&quot;,&quot;original&quot;:&quot;Открыть оригинал&quot;,&quot;zoom&quot;:&quot;Масштаб&quot;,&quot;diagramHint&quot;:&quot;Кнопки + / − меняют масштаб. Прокрутка перемещает диаграмму.&quot;,&quot;definitions&quot;:&quot;Определения&quot;}"><p><a href="/ru/course/distribution/topics-partitions-and-offsets-in-kafka/" data-course-link="">Топик <code dir="auto">usage</code></a> (topic) нашего
+ИИ-ассистента читают три обработчика (processor): A читает партицию
+(partition) 0, B — 1, C — 2. В 11:00 2 февраля отказывает машина обработчика
+A. У партиции 0 с записями <code dir="auto">acme</code> и <code dir="auto">delta</code> нет читателя, и страницы расхода
+обоих аккаунтов перестают меняться.</p>
+<p>Kafka может это заметить, передать партицию 0 другому обработчику и сказать
+ему, где остановился A. Тем временем финансовая служба хочет читать тот же
+топик для своей сверки, а на следующей неделе может понадобиться пересчитать
+весь февраль. Как Kafka решает, кто какую партицию читает, и что нужно
+обработчику, кроме позиции, чтобы правильно продолжить?</p>
+<div class="sl-heading-wrapper level-h2"><h2 id="группа-делит-партиции">Группа делит партиции</h2><a class="sl-anchor-link" href="#группа-делит-партиции"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 1 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 0 0-1.42-1.42m8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 1 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 0 0 0 1.42 1 1 0 0 0 1.42 0l3.88-3.89a4.49 4.49 0 0 0 0-6.33M8.83 15.17a1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.92-4.92a1 1 0 1 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42"></path></svg></span><span class="sr-only" data-pagefind-ignore="">Заголовок раздела «Группа делит партиции»</span></a></div>
+<p>Потребители (consumers), которые вместе читают топик, образуют <strong>группу
+потребителей</strong> (consumer group). Каждый потребитель при подключении называет
+свою группу; наша называется <code dir="auto">usage-totals</code>. Kafka назначает каждую партицию
+топика ровно одному потребителю группы<sup><a href="https://kafka.apache.org/44/javadoc/org/apache/kafka/clients/consumer/KafkaConsumer.html" id="user-content-fnref-1" data-footnote-ref="" title="Apache Kafka 4.4: KafkaConsumer, Consumer Groups and Topic Subscriptions; Offsets and Consumer Position; Storing Offsets Outside Kafka" target="_blank" rel="noopener noreferrer">1</a></sup>. Вместе потребители группы читают
+каждую партицию один раз, как один читатель, разделённый на части:</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Потребитель в <code dir="auto">usage-totals</code></th><th>Партиция</th></tr></thead><tbody><tr><td>A</td><td>0</td></tr><tr><td>B</td><td>1</td></tr><tr><td>C</td><td>2</td></tr></tbody></table>
+<p>Четвёртый потребитель в этой группе не получил бы партиции и ждал бы: одна
+партиция достаётся одному потребителю группы. Это
+<a href="/ru/course/distribution/splitting-a-log-into-partitions/" data-course-link="">предел партиций</a> в терминах Kafka.</p>
+<p>У Kafka есть и другой способ чтения. С версии 4.2 в ней есть группы
+совместного чтения (share groups): несколько потребителей читают одну
+партицию и подтверждают каждую запись отдельно<sup><a href="https://kafka.apache.org/blog/2026/02/17/apache-kafka-4.2.0-release-announcement/" id="user-content-fnref-2" data-footnote-ref="" title="Apache Kafka 4.2.0 Release Announcement" target="_blank" rel="noopener noreferrer">2</a></sup>. Это способ чтения
+<a href="/ru/course/distribution/a-queue-or-a-log/" data-course-link="">очереди</a> (queue) поверх журнала (log). Он подходит для
+независимых задач, а нашим итогам нужны обычные группы потребителей, где все
+записи одного ключа (key) попадают к одному потребителю.</p>
+<div class="sl-heading-wrapper level-h2"><h2 id="когда-потребитель-уходит-или-приходит">Когда потребитель уходит или приходит</h2><a class="sl-anchor-link" href="#когда-потребитель-уходит-или-приходит"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 1 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 0 0-1.42-1.42m8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 1 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 0 0 0 1.42 1 1 0 0 0 1.42 0l3.88-3.89a4.49 4.49 0 0 0 0-6.33M8.83 15.17a1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.92-4.92a1 1 0 1 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42"></path></svg></span><span class="sr-only" data-pagefind-ignore="">Заголовок раздела «Когда потребитель уходит или приходит»</span></a></div>
+<p>Потребитель в группе регулярно сообщает, что он жив. Если сообщений нет
+дольше заданного времени, Kafka считает потребителя упавшим и отдаёт его
+партиции остальным потребителям группы. Когда приходит новый потребитель,
+Kafka переносит к нему часть партиций<sup><a href="https://kafka.apache.org/44/javadoc/org/apache/kafka/clients/consumer/KafkaConsumer.html" id="user-content-fnref-1-2" data-footnote-ref="" title="Apache Kafka 4.4: KafkaConsumer, Consumer Groups and Topic Subscriptions; Offsets and Consumer Position; Storing Offsets Outside Kafka" target="_blank" rel="noopener noreferrer">1</a></sup>. Перераспределение партиций между
+потребителями группы называется <strong>перебалансировкой</strong> (rebalance).</p>
+<p>С настройками Java-клиента Kafka по умолчанию потребитель считается упавшим
+через 45 секунд без сообщений<sup><a href="https://kafka.apache.org/44/configuration/consumer-configs/" id="user-content-fnref-3" data-footnote-ref="" title="Apache Kafka 4.4: Consumer Configs" target="_blank" rel="noopener noreferrer">3</a></sup>. Так что примерно в 11:00:45 партиция 0
+достаётся, скажем, B, и теперь B читает партиции 0 и 1. Эти 45 секунд страницы
+расхода <code dir="auto">acme</code> и <code dir="auto">delta</code> стоят на месте, а потом догоняют. Потребитель теряет
+партиции и тогда, когда он жив, но медлит: если он пять минут, по умолчанию, не
+просит новых записей, он выходит из группы<sup><a href="https://kafka.apache.org/44/configuration/consumer-configs/" id="user-content-fnref-3-2" data-footnote-ref="" title="Apache Kafka 4.4: Consumer Configs" target="_blank" rel="noopener noreferrer">3</a></sup>. Это тот
+<a href="/ru/course/distribution/splitting-a-log-into-partitions/#%D0%BF%D0%B5%D1%80%D0%B5%D0%B4%D0%B0%D1%87%D0%B0-%D0%BF%D0%B0%D1%80%D1%82%D0%B8%D1%86%D0%B8%D0%B8-%D0%B4%D1%80%D1%83%D0%B3%D0%BE%D0%BC%D1%83-%D0%BE%D0%B1%D1%80%D0%B0%D0%B1%D0%BE%D1%82%D1%87%D0%B8%D0%BA%D1%83" data-course-link="">медленный обработчик, который мог продолжать работу после передачи партиции</a>:
+как только у партиции другой владелец, прежний должен перестать отправлять
+по ней результаты.</p>
+<figure class="course-diagram">
+<svg viewBox="0 0 384 280" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="consumer-group-rebalance-title consumer-group-rebalance-desc">
+<title id="consumer-group-rebalance-title">Когда потребитель уходит или приходит</title>
+<desc id="consumer-group-rebalance-desc">A отказывает в 11:00; до таймаута у партиции 0 нет читателя, затем её берёт B вместе с партицией 1, а C продолжает читать партицию 2.</desc>
+  <style>
+    .cd-paper { fill: var(--sl-color-bg, #ffffff); }
+    .cd-name { fill: var(--sl-color-white, #18181b); font: 600 14px var(--sl-font, system-ui, sans-serif); }
+    .cd-sub { fill: var(--sl-color-gray-3, #52525b); font: 12px var(--sl-font, system-ui, sans-serif); }
+    .cd-code { fill: var(--sl-color-gray-3, #52525b); font: 12px var(--sl-font-mono, ui-monospace, monospace); }
+    .cd-label { fill: var(--sl-color-gray-3, #52525b); font: 11px var(--sl-font-mono, ui-monospace, monospace); letter-spacing: 0.06em; }
+    .cd-zone-label { fill: var(--sl-color-text-accent, #6366f1); font: 600 11px var(--sl-font-mono, ui-monospace, monospace); letter-spacing: 0.14em; }
+    .cd-arrow { stroke: var(--sl-color-gray-3, #52525b); stroke-width: 1.2; }
+    .cd-arrow-head { fill: var(--sl-color-gray-3, #52525b); }
+    .cd-zone { fill: var(--sl-color-accent-low, #eef0fe); stroke: var(--sl-color-accent, #6366f1); stroke-width: 1; }
+    .cd-node { fill: var(--sl-color-bg, #ffffff); stroke: var(--sl-color-gray-3, #52525b); stroke-width: 1; }
+    .cd-input { fill: color-mix(in srgb, var(--sl-color-gray-3, #52525b) 10%, var(--sl-color-bg, #ffffff)); stroke: var(--sl-color-gray-4, #a1a1aa); stroke-width: 1; }
+    .cd-store { fill: color-mix(in srgb, var(--sl-color-white, #18181b) 5%, var(--sl-color-bg, #ffffff)); stroke: var(--sl-color-gray-3, #52525b); stroke-width: 1; }
+    .cd-accent { fill: var(--sl-color-accent-low, #eef0fe); stroke: var(--sl-color-accent, #6366f1); stroke-width: 1; }
+    .cd-arrow-accent { stroke: var(--sl-color-accent, #6366f1); stroke-width: 1.2; }
+    .cd-arrow-accent-head { fill: var(--sl-color-accent, #6366f1); }
+    .cd-track { stroke: var(--sl-color-gray-4, #a1a1aa); stroke-width: 1; }
+    .cd-guide { stroke: var(--sl-color-gray-4, #a1a1aa); stroke-width: 1; stroke-dasharray: 2 4; }
+    .cd-dot { fill: var(--sl-color-gray-3, #52525b); }
+    .cd-accent-text { fill: var(--sl-color-text-accent, #6366f1); }
+    .cd-orange { fill: color-mix(in srgb, var(--course-orange, #c2410c) 12%, var(--sl-color-bg, #ffffff)); stroke: var(--course-orange, #c2410c); stroke-width: 1; }
+    .cd-orange-text { fill: var(--course-orange, #c2410c); }
+    .cd-teal { fill: color-mix(in srgb, var(--course-teal, #0f766e) 12%, var(--sl-color-bg, #ffffff)); stroke: var(--course-teal, #0f766e); stroke-width: 1; }
+    .cd-teal-text { fill: var(--course-teal, #0f766e); }
+  </style>
+<defs>
+<marker id="consumer-group-rebalance-arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon class="cd-arrow-head" points="0 0, 8 3, 0 6"></polygon></marker>
+</defs>
+<line class="cd-guide" x1="232" y1="28" x2="232" y2="228"></line>
+<line class="cd-guide" x1="296" y1="28" x2="296" y2="228"></line>
+<text class="cd-name" x="16" y="52">Партиция 0</text>
+<text class="cd-sub" x="16" y="70">acme, delta</text>
+<line class="cd-track" x1="200" y1="60" x2="368" y2="60"></line>
+<rect class="cd-store" x="200" y="52" width="32" height="16" rx="4"></rect>
+<text class="cd-code" x="216" y="64" text-anchor="middle">A</text>
+<rect class="cd-accent" x="296" y="52" width="72" height="16" rx="4"></rect>
+<text class="cd-code" x="332" y="64" text-anchor="middle">B</text>
+<text class="cd-sub" x="264" y="44" text-anchor="middle">нет читателя</text>
+<text class="cd-name" x="16" y="116">Партиция 1</text>
+<text class="cd-sub" x="16" y="134">beta</text>
+<line class="cd-track" x1="200" y1="124" x2="368" y2="124"></line>
+<rect class="cd-store" x="200" y="116" width="168" height="16" rx="4"></rect>
+<text class="cd-code" x="284" y="128" text-anchor="middle">B</text>
+<text class="cd-name" x="16" y="180">Партиция 2</text>
+<text class="cd-sub" x="16" y="198">gamma</text>
+<line class="cd-track" x1="200" y1="188" x2="368" y2="188"></line>
+<rect class="cd-store" x="200" y="180" width="168" height="16" rx="4"></rect>
+<text class="cd-code" x="284" y="192" text-anchor="middle">C</text>
+<line class="cd-arrow" x1="200" y1="236" x2="364" y2="236" marker-end="url(#consumer-group-rebalance-arrow)"></line>
+<text class="cd-code" x="232" y="252" text-anchor="middle">11:00</text>
+<text class="cd-code" x="296" y="252" text-anchor="middle">11:00:45</text>
+<text class="cd-label" x="368" y="272" text-anchor="end">ВРЕМЯ</text>
+</svg>
+</figure>
+<div class="sl-heading-wrapper level-h2"><h2 id="зафиксированные-смещения">Зафиксированные смещения</h2><a class="sl-anchor-link" href="#зафиксированные-смещения"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 1 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 0 0-1.42-1.42m8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 1 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 0 0 0 1.42 1 1 0 0 0 1.42 0l3.88-3.89a4.49 4.49 0 0 0 0-6.33M8.83 15.17a1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.92-4.92a1 1 0 1 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42"></path></svg></span><span class="sr-only" data-pagefind-ignore="">Заголовок раздела «Зафиксированные смещения»</span></a></div>
+<p>Теперь B нужно место в партиции 0, с которого начать. Позиция A жила в памяти
+A и пропала. Поэтому группа хранит свой прогресс в Kafka: для каждой партиции —
+смещение (offset) следующей записи, которую нужно прочитать. Запись этого
+смещения в Kafka называется фиксацией (commit), а сохранённое значение —
+<strong>зафиксированным смещением</strong> (committed offset)<sup><a href="https://kafka.apache.org/44/javadoc/org/apache/kafka/clients/consumer/KafkaConsumer.html" id="user-content-fnref-1-3" data-footnote-ref="" title="Apache Kafka 4.4: KafkaConsumer, Consumer Groups and Topic Subscriptions; Offsets and Consumer Position; Storing Offsets Outside Kafka" target="_blank" rel="noopener noreferrer">1</a></sup>. B начинает читать
+партицию 0 со смещения, которое A зафиксировал последним.</p>
+<p>От того, когда фиксировать, зависит, какой сбой возможен. Потребитель,
+который фиксирует смещение до обработки записей, может их потерять: если он
+упадёт в промежутке, новый владелец начнёт после записей, которые никто не
+обработал. Потребитель, который фиксирует после обработки, может обработать
+их дважды: если он упадёт в промежутке, новый владелец прочитает их снова<sup><a href="https://kafka.apache.org/44/design/design/" id="user-content-fnref-4" data-footnote-ref="" title="Apache Kafka 4.4: Design, Message Delivery Semantics" target="_blank" rel="noopener noreferrer">4</a></sup>.
+Это гарантии <a href="/ru/course/reliability/when-an-event-arrives-twice-or-never/" data-course-link="">не более одного раза и не менее одного раза</a>
+(at-most-once, at-least-once), теперь на участке между журналом и
+обработчиком.</p>
+<p>По умолчанию Java-клиент фиксирует автоматически, каждые пять секунд, смещения
+записей, которые вернул <code dir="auto">poll</code><sup><a href="https://kafka.apache.org/44/configuration/consumer-configs/" id="user-content-fnref-3-3" data-footnote-ref="" title="Apache Kafka 4.4: Consumer Configs" target="_blank" rel="noopener noreferrer">3</a></sup>. Это подходит потребителю, который
+заканчивает каждую пачку, прежде чем просить следующую. Потребитель, который
+передаёт записи другим потокам и снова вызывает <code dir="auto">poll</code>, может зафиксировать
+смещения записей, которые ещё обрабатываются, и тогда сбой их теряет<sup><a href="https://kafka.apache.org/44/javadoc/org/apache/kafka/clients/consumer/KafkaConsumer.html" id="user-content-fnref-1-4" data-footnote-ref="" title="Apache Kafka 4.4: KafkaConsumer, Consumer Groups and Topic Subscriptions; Offsets and Consumer Position; Storing Offsets Outside Kafka" target="_blank" rel="noopener noreferrer">1</a></sup>.</p>
+<div class="sl-heading-wrapper level-h2"><h2 id="смещение-без-состояния">Смещение без состояния</h2><a class="sl-anchor-link" href="#смещение-без-состояния"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 1 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 0 0-1.42-1.42m8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 1 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 0 0 0 1.42 1 1 0 0 0 1.42 0l3.88-3.89a4.49 4.49 0 0 0 0-6.33M8.83 15.17a1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.92-4.92a1 1 0 1 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42"></path></svg></span><span class="sr-only" data-pagefind-ignore="">Заголовок раздела «Смещение без состояния»</span></a></div>
+<p>Допустим, перед сбоем A зафиксировал смещение 4: он учёл записи со смещениями
+0–3, и итог <code dir="auto">acme</code> в его памяти был 1 400 токенов. B начинает со смещения 4 и
+читает <code dir="auto">u-103</code>, 600 токенов. Но у B нет состояния (state) <code dir="auto">acme</code>, поэтому итог
+аккаунта у него 600, а не 2 000. Зафиксированное смещение перенесло к B позицию
+A. Итог A был в памяти A и пропал вместе с ней.</p>
+<p>Зафиксированное смещение — это <a href="/ru/course/reliability/what-must-survive-a-restart/" data-course-link="">прогресс чтения</a>
+(reading progress), и ничего больше. Новому владельцу партиции нужно ещё и
+состояние, которое соответствует этому смещению: состояние, которое включает
+ровно записи до него, как в
+<a href="/ru/course/reliability/recovering-a-consistent-computation/" data-course-link="">согласованной контрольной точке</a>
+(consistent checkpoint). Потребитель Kafka этого дать не может: он не знает,
+что обработчик хранит в памяти.</p>
+<p>Есть два распространённых способа держать смещение и состояние вместе.
+Обработчик может хранить смещение вместе со своими результатами, например в
+той же транзакции (transaction) базы данных, и начинать с этого сохранённого смещения, а не
+с зафиксированного<sup><a href="https://kafka.apache.org/44/javadoc/org/apache/kafka/clients/consumer/KafkaConsumer.html" id="user-content-fnref-1-5" data-footnote-ref="" title="Apache Kafka 4.4: KafkaConsumer, Consumer Groups and Topic Subscriptions; Offsets and Consumer Position; Storing Offsets Outside Kafka" target="_blank" rel="noopener noreferrer">1</a></sup>. Или он может держать смещения в своих контрольных
+точках (checkpoints) рядом с состоянием. Так делает Flink: его источник Kafka восстанавливает
+смещения из контрольной точки, не полагается на зафиксированные смещения при
+восстановлении и фиксирует их только для того, чтобы другие видели его
+прогресс<sup><a href="https://nightlies.apache.org/flink/flink-docs-release-2.3/docs/connectors/datastream/kafka/#consumer-offset-committing" id="user-content-fnref-5" data-footnote-ref="" title="Apache Flink 2.3: Kafka Source, Consumer Offset Committing" target="_blank" rel="noopener noreferrer">5</a></sup>. В нашем примере состояние сохранено до копии на смещении 3.
+В обоих случаях B восстанавливает <code dir="auto">acme</code> с 1 400 токенами и
+смещение 3, узнаёт копию <code dir="auto">u-102</code>, учитывает <code dir="auto">u-103</code> и доходит до 2 000.</p>
+<figure class="course-diagram">
+<svg viewBox="0 0 384 204" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="offset-and-matching-state-title offset-and-matching-state-desc">
+<title id="offset-and-matching-state-title">Смещение без состояния</title>
+<desc id="offset-and-matching-state-desc">Старт со смещения 4 без состояния даёт acme только 600 токенов; восстановление 1 400 со смещением 3 позволяет пропустить копию и получить 2 000.</desc>
+  <style>
+    .cd-paper { fill: var(--sl-color-bg, #ffffff); }
+    .cd-name { fill: var(--sl-color-white, #18181b); font: 600 14px var(--sl-font, system-ui, sans-serif); }
+    .cd-sub { fill: var(--sl-color-gray-3, #52525b); font: 12px var(--sl-font, system-ui, sans-serif); }
+    .cd-code { fill: var(--sl-color-gray-3, #52525b); font: 12px var(--sl-font-mono, ui-monospace, monospace); }
+    .cd-label { fill: var(--sl-color-gray-3, #52525b); font: 11px var(--sl-font-mono, ui-monospace, monospace); letter-spacing: 0.06em; }
+    .cd-zone-label { fill: var(--sl-color-text-accent, #6366f1); font: 600 11px var(--sl-font-mono, ui-monospace, monospace); letter-spacing: 0.14em; }
+    .cd-arrow { stroke: var(--sl-color-gray-3, #52525b); stroke-width: 1.2; }
+    .cd-arrow-head { fill: var(--sl-color-gray-3, #52525b); }
+    .cd-zone { fill: var(--sl-color-accent-low, #eef0fe); stroke: var(--sl-color-accent, #6366f1); stroke-width: 1; }
+    .cd-node { fill: var(--sl-color-bg, #ffffff); stroke: var(--sl-color-gray-3, #52525b); stroke-width: 1; }
+    .cd-input { fill: color-mix(in srgb, var(--sl-color-gray-3, #52525b) 10%, var(--sl-color-bg, #ffffff)); stroke: var(--sl-color-gray-4, #a1a1aa); stroke-width: 1; }
+    .cd-store { fill: color-mix(in srgb, var(--sl-color-white, #18181b) 5%, var(--sl-color-bg, #ffffff)); stroke: var(--sl-color-gray-3, #52525b); stroke-width: 1; }
+    .cd-accent { fill: var(--sl-color-accent-low, #eef0fe); stroke: var(--sl-color-accent, #6366f1); stroke-width: 1; }
+    .cd-arrow-accent { stroke: var(--sl-color-accent, #6366f1); stroke-width: 1.2; }
+    .cd-arrow-accent-head { fill: var(--sl-color-accent, #6366f1); }
+    .cd-track { stroke: var(--sl-color-gray-4, #a1a1aa); stroke-width: 1; }
+    .cd-guide { stroke: var(--sl-color-gray-4, #a1a1aa); stroke-width: 1; stroke-dasharray: 2 4; }
+    .cd-dot { fill: var(--sl-color-gray-3, #52525b); }
+    .cd-accent-text { fill: var(--sl-color-text-accent, #6366f1); }
+    .cd-orange { fill: color-mix(in srgb, var(--course-orange, #c2410c) 12%, var(--sl-color-bg, #ffffff)); stroke: var(--course-orange, #c2410c); stroke-width: 1; }
+    .cd-orange-text { fill: var(--course-orange, #c2410c); }
+    .cd-teal { fill: color-mix(in srgb, var(--course-teal, #0f766e) 12%, var(--sl-color-bg, #ffffff)); stroke: var(--course-teal, #0f766e); stroke-width: 1; }
+    .cd-teal-text { fill: var(--course-teal, #0f766e); }
+  </style>
+<defs>
+<marker id="offset-and-matching-state-arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon class="cd-arrow-head" points="0 0, 8 3, 0 6"></polygon></marker>
+</defs>
+<text class="cd-label" x="48" y="20">ТОЛЬКО СМЕЩЕНИЕ</text>
+<rect class="cd-node" x="48" y="32" width="128" height="56" rx="6"></rect>
+<text class="cd-name" x="112" y="56" text-anchor="middle">Начать с 4</text>
+<text class="cd-code" x="112" y="74" text-anchor="middle">acme: 0</text>
+<line class="cd-arrow" x1="176" y1="60" x2="208" y2="60" marker-end="url(#offset-and-matching-state-arrow)"></line>
+<rect class="cd-node" x="208" y="32" width="128" height="56" rx="6"></rect>
+<text class="cd-code" x="272" y="56" text-anchor="middle">u-103: +600</text>
+<text class="cd-code" x="272" y="74" text-anchor="middle">acme: 600</text>
+<text class="cd-label" x="48" y="124">СОСТОЯНИЕ + СМЕЩЕНИЕ</text>
+<rect class="cd-accent" x="48" y="136" width="128" height="56" rx="6"></rect>
+<text class="cd-name" x="112" y="160" text-anchor="middle">Начать с 3</text>
+<text class="cd-code" x="112" y="178" text-anchor="middle">acme: 1 400</text>
+<line class="cd-arrow" x1="176" y1="164" x2="208" y2="164" marker-end="url(#offset-and-matching-state-arrow)"></line>
+<rect class="cd-store" x="208" y="136" width="128" height="56" rx="6"></rect>
+<text class="cd-name" x="272" y="160" text-anchor="middle">Пропуск</text>
+<text class="cd-code" x="272" y="178" text-anchor="middle">u-103 → 2 000</text>
+</svg>
+</figure>
+<div class="sl-heading-wrapper level-h2"><h2 id="независимые-читатели">Независимые читатели</h2><a class="sl-anchor-link" href="#независимые-читатели"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 1 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 0 0-1.42-1.42m8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 1 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 0 0 0 1.42 1 1 0 0 0 1.42 0l3.88-3.89a4.49 4.49 0 0 0 0-6.33M8.83 15.17a1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.92-4.92a1 1 0 1 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42"></path></svg></span><span class="sr-only" data-pagefind-ignore="">Заголовок раздела «Независимые читатели»</span></a></div>
+<p>Финансовая служба запускает своего потребителя со своей группой,
+<code dir="auto">finance-check</code>. Kafka хранит зафиксированные смещения каждой группы отдельно,
+поэтому две группы читают одни и те же партиции, не влияя друг на друга.
+Вечером 5 февраля их смещения выглядят так:</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Группа</th><th>Партиция 0</th><th>Партиция 1</th><th>Партиция 2</th></tr></thead><tbody><tr><td><code dir="auto">usage-totals</code></td><td>251 408 377</td><td>248 915 102</td><td>250 301 977</td></tr><tr><td><code dir="auto">finance-check</code></td><td>64 120 550</td><td>63 498 331</td><td>63 905 720</td></tr></tbody></table>
+<p>Обработчики расхода близки к самым новым записям. Финансовый читатель начал с
+самых ранних записей, сильно отстаёт и идёт в своём темпе. Прогресс ни одной из
+групп ничего не удаляет.</p>
+<p>У новой группы зафиксированных смещений ещё нет. По умолчанию её потребители
+начинают с конца каждой партиции и читают только записи, которые пришли после
+подключения<sup><a href="https://kafka.apache.org/44/configuration/consumer-configs/" id="user-content-fnref-3-4" data-footnote-ref="" title="Apache Kafka 4.4: Consumer Configs" target="_blank" rel="noopener noreferrer">3</a></sup>. Финансовому читателю нужно обратное, поэтому он настроен
+начинать с самого раннего доступного смещения.</p>
+<div class="sl-heading-wrapper level-h2"><h2 id="воспроизведение-по-решению">Воспроизведение по решению</h2><a class="sl-anchor-link" href="#воспроизведение-по-решению"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 1 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 0 0-1.42-1.42m8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 1 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 0 0 0 1.42 1 1 0 0 0 1.42 0l3.88-3.89a4.49 4.49 0 0 0 0-6.33M8.83 15.17a1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.92-4.92a1 1 0 1 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42"></path></svg></span><span class="sr-only" data-pagefind-ignore="">Заголовок раздела «Воспроизведение по решению»</span></a></div>
+<p>10 февраля команда находит ошибку. После
+<a href="/ru/course/reliability/what-must-survive-a-restart/" data-course-link="">обновления в 06:05 2 февраля</a>
+обработчик учитывал ещё и записи со <code dir="auto">status</code> <code dir="auto">failed</code>: запросы, которые
+завершились ошибкой, а за них клиенты не платят. Статус в записях есть,
+поэтому исправленный обработчик может их отличить. После исправления всё, что
+было после обновления, нужно посчитать заново.</p>
+<p>Воспроизведение (replay) должно начаться с состояния и смещений, которые
+соответствуют друг другу. В последней контрольной точке до обновления, от
+06:01, есть и то и другое: итоги и списки учтённых ID, а для каждой партиции —
+смещение, до которого они посчитаны. Обработчик восстанавливает эту
+контрольную точку, если она ещё хранится, и читает каждую партицию со
+смещения из неё. Обработчик, который держит смещения в своих контрольных
+точках, как Flink, делает это сам. В нашей группе останавливаем всех
+потребителей <code dir="auto">usage-totals</code> и восстанавливаем их состояние. Пока группа
+неактивна, сбрасываем смещения инструментом командной строки Kafka из файла,
+где для каждой партиции указаны топик, партиция и смещение<sup><a href="https://kafka.apache.org/44/operations/basic-kafka-operations/" id="user-content-fnref-6" data-footnote-ref="" title="Apache Kafka 4.4: Basic Kafka Operations, Managing consumer groups" target="_blank" rel="noopener noreferrer">6</a></sup>:</p>
+<div class="expressive-code"><link rel="stylesheet" href="/_astro/ec.w36nc.css"><script type="module" src="/_astro/ec.0vx5m.js"></script><figure class="frame not-content"><figcaption class="header"></figcaption><pre data-language="sh"><code><div class="ec-line"><div class="code"><span style="--0:#82AAFF;--1:#3B61B0">kafka-consumer-groups.sh</span><span style="--0:#D6DEEB;--1:#403F53"> </span><span style="--0:#82AAFF;--1:#3B61B0">--bootstrap-server</span><span style="--0:#D6DEEB;--1:#403F53"> </span><span style="--0:#ECC48D;--1:#3B61B0">broker-1:9092</span><span style="--0:#D6DEEB;--1:#403F53"> </span><span style="--0:#F78C6C;--1:#AA0982">\</span></div></div><div class="ec-line"><div class="code"><span class="indent">  </span><span style="--0:#82AAFF;--1:#3B61B0">--group</span><span style="--0:#D6DEEB;--1:#403F53"> </span><span style="--0:#ECC48D;--1:#3B61B0">usage-totals</span><span style="--0:#D6DEEB;--1:#403F53"> </span><span style="--0:#82AAFF;--1:#3B61B0">--reset-offsets</span><span style="--0:#D6DEEB;--1:#403F53"> </span><span style="--0:#82AAFF;--1:#3B61B0">--from-file</span><span style="--0:#D6DEEB;--1:#403F53"> </span><span style="--0:#ECC48D;--1:#3B61B0">checkpoint-0601.csv</span><span style="--0:#D6DEEB;--1:#403F53"> </span><span style="--0:#82AAFF;--1:#3B61B0">--execute</span></div></div></code></pre><div class="copy"><div aria-live="polite"></div><button title="Копировать" data-copied="Скопировано!" data-code="kafka-consumer-groups.sh --bootstrap-server broker-1:9092 \  --group usage-totals --reset-offsets --from-file checkpoint-0601.csv --execute"><div></div></button></div></figure></div>
+<p>Затем запускаем потребителей с исправленным кодом и восстановленным состоянием.</p>
+<p>Тот же инструмент умеет сдвигать смещения и ко времени. Тогда он находит
+первые записи, у которых метка времени позже заданной, а метка времени ничего
+не говорит о том, какие записи вошли в контрольную точку. Если в 06:05
+обработчик <a href="/ru/course/distribution/a-queue-or-a-log/" data-course-link="">отставал на 20 минут</a>, как в утренний пик,
+его состояние заканчивалось на записях, записанных около 05:45. Сброс по
+времени подходит читателю, у которого нет состояния, с которым надо
+согласоваться.</p>
+<p>Если контрольной точки до обновления нет, итоги придётся считать с первой
+записи месяца. Если оставить текущие итоги, каждый запрос после обновления
+добавится второй раз, а
+<a href="/ru/course/reliability/when-an-event-arrives-twice-or-never/" data-course-link="">список ID</a>, который
+хранится 24 часа, не узнает записи прошлой недели.</p>
+<p>Получателям тоже нужно правило для пересчитанных результатов. Страница расхода
+хранит <a href="/ru/course/reliability/one-result-one-external-effect/" data-course-link="">самую новую версию</a>
+каждого итога, а версия — это позиция последней записи, которая вошла в итог.
+У пересчитанных итогов те же позиции, что у прежних, поэтому страница отвергла
+бы их как старые. Пересчёту нужны собственные версии, например номер запуска
+перед позицией, чтобы любой итог второго запуска был новее любого итога
+первого. Биллинговой системе, для которой известный <code dir="auto">usage_id</code> с другим числом
+токенов — ошибка, нужна явная корректировка. Воспроизведение пересчитывает
+результаты, а что значит пересчитанный результат, решает каждый получатель.</p>
+<p>Ещё воспроизведению нужны сами записи. По умолчанию Kafka хранит записи топика
+семь дней<sup><a href="https://kafka.apache.org/44/configuration/topic-configs/" id="user-content-fnref-7" data-footnote-ref="" title="Apache Kafka 4.4: Topic Configs, retention.ms" target="_blank" rel="noopener noreferrer">7</a></sup>. К 10 февраля с появления ошибки прошло восемь дней. При сроке
+хранения по умолчанию сегменты с началом этого периода уже могли удалить.
+Тогда в журнале не хватит части входных записей для пересчёта итогов.</p>
+<div class="sl-heading-wrapper level-h2"><h2 id="что-запомнить">Что запомнить</h2><a class="sl-anchor-link" href="#что-запомнить"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 1 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 0 0-1.42-1.42m8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 1 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 0 0 0 1.42 1 1 0 0 0 1.42 0l3.88-3.89a4.49 4.49 0 0 0 0-6.33M8.83 15.17a1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.92-4.92a1 1 0 1 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42"></path></svg></span><span class="sr-only" data-pagefind-ignore="">Заголовок раздела «Что запомнить»</span></a></div>
+<ul>
+<li>Группа потребителей делит партиции топика: каждая партиция достаётся одному
+потребителю группы. Когда потребитель падает или приходит, перебалансировка
+переносит партиции.</li>
+<li>Зафиксированное смещение — прогресс группы, который хранится в Kafka.
+Фиксация до обработки грозит потерей, после обработки — повтором.</li>
+<li>Зафиксированное смещение не несёт состояния. Новому владельцу партиции нужно
+состояние, которое соответствует смещению, поэтому смещения хранят вместе с
+состоянием или с результатами.</li>
+<li>Разные группы читают один топик независимо. Воспроизведение начинается со
+смещений контрольной точки вместе с её состоянием, а получателям нужно
+правило для пересчитанных результатов.</li>
+</ul>
+<div class="sl-heading-wrapper level-h2"><h2 id="источники">Источники</h2><a class="sl-anchor-link" href="#источники"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 1 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 0 0-1.42-1.42m8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 1 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 0 0 0 1.42 1 1 0 0 0 1.42 0l3.88-3.89a4.49 4.49 0 0 0 0-6.33M8.83 15.17a1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.92-4.92a1 1 0 1 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42"></path></svg></span><span class="sr-only" data-pagefind-ignore="">Заголовок раздела «Источники»</span></a></div><section data-footnotes="" class="footnotes" aria-label="Источники"><ol>
+<li id="user-content-fn-1">
+<p><a href="https://kafka.apache.org/44/javadoc/org/apache/kafka/clients/consumer/KafkaConsumer.html" target="_blank" rel="noopener noreferrer">Apache Kafka 4.4: KafkaConsumer, Consumer Groups and Topic Subscriptions; Offsets and Consumer Position; Storing Offsets Outside Kafka</a>.    </p>
+</li>
+<li id="user-content-fn-2">
+<p><a href="https://kafka.apache.org/blog/2026/02/17/apache-kafka-4.2.0-release-announcement/" target="_blank" rel="noopener noreferrer">Apache Kafka 4.2.0 Release Announcement</a>.</p>
+</li>
+<li id="user-content-fn-3">
+<p><a href="https://kafka.apache.org/44/configuration/consumer-configs/" target="_blank" rel="noopener noreferrer">Apache Kafka 4.4: Consumer Configs</a>.   </p>
+</li>
+<li id="user-content-fn-4">
+<p><a href="https://kafka.apache.org/44/design/design/" target="_blank" rel="noopener noreferrer">Apache Kafka 4.4: Design, Message Delivery Semantics</a>.</p>
+</li>
+<li id="user-content-fn-5">
+<p><a href="https://nightlies.apache.org/flink/flink-docs-release-2.3/docs/connectors/datastream/kafka/#consumer-offset-committing" target="_blank" rel="noopener noreferrer">Apache Flink 2.3: Kafka Source, Consumer Offset Committing</a>.</p>
+</li>
+<li id="user-content-fn-6">
+<p><a href="https://kafka.apache.org/44/operations/basic-kafka-operations/" target="_blank" rel="noopener noreferrer">Apache Kafka 4.4: Basic Kafka Operations, Managing consumer groups</a>.</p>
+</li>
+<li id="user-content-fn-7">
+<p><a href="https://kafka.apache.org/44/configuration/topic-configs/" target="_blank" rel="noopener noreferrer">Apache Kafka 4.4: Topic Configs, retention.ms</a>.</p>
+</li>
+</ol></section>
+<div class="sl-heading-wrapper level-h2"><h2 id="что-почитать">Что почитать</h2><a class="sl-anchor-link" href="#что-почитать"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 1 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 0 0-1.42-1.42m8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 1 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 0 0 0 1.42 1 1 0 0 0 1.42 0l3.88-3.89a4.49 4.49 0 0 0 0-6.33M8.83 15.17a1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.92-4.92a1 1 0 1 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42"></path></svg></span><span class="sr-only" data-pagefind-ignore="">Заголовок раздела «Что почитать»</span></a></div>
+<ul>
+<li>Гвен Шапира, Тодд Палино, Раджини Сиварам и Крит Петти, <em><a href="https://www.piter.com/product/apache-kafka-potokovaya-obrabotka-i-analiz-dannyh-2-e-izdanie">Apache Kafka. Потоковая обработка и анализ данных</a></em>,
+2-е изд. (Питер, 2023), глава 4 «Потребители Kafka: чтение данных из Kafka».
+Разбирает группы потребителей и перебалансировку, автоматическую и ручную
+фиксацию смещений и то, как потребитель начинает с заданного смещения.</li>
+</ul>
+</div><div class="course-progress-row"><button type="button" class="course-progress-toggle" role="switch" aria-checked="false" data-course-progress-toggle hidden><span class="course-progress" data-state="seen" aria-hidden="true"></span>Отметить как прочитанное</button></div><footer class="sl-flex astro-ddtxxk7k"><div class="meta sl-flex astro-ddtxxk7k"></div><nav class="course-pagination" aria-label="Между статьями"><a href="/ru/course/distribution/topics-partitions-and-offsets-in-kafka/" rel="prev"><span class="pagination-direction">← Предыдущая</span><span class="pagination-title">Топики, партиции и смещения в Kafka</span><span class="pagination-section">Распределённая обработка и журнал</span></a><a href="/ru/course/distribution/how-long-does-kafka-keep-history/" rel="next"><span class="pagination-direction">Следующая →</span><span class="pagination-title">Как долго Kafka хранит историю?</span><span class="pagination-section">Распределённая обработка и журнал</span></a></nav></footer><p class="course-license astro-7g3h5dfi">© 2026 <a href="https://alexengrig.github.io" class="astro-7g3h5dfi">Grig Alex</a> · <a href="https://creativecommons.org/licenses/by-sa/4.0/deed.ru" rel="license" class="astro-7g3h5dfi">CC BY-SA 4.0</a></p></div></div></main></div></div></div></div></body></html>

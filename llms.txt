@@ -19,6 +19,12 @@
 - [What must survive a restart?](https://stream-processing-systems.github.io/en/course/reliability/what-must-survive-a-restart.md)
 - [Recovering a consistent computation](https://stream-processing-systems.github.io/en/course/reliability/recovering-a-consistent-computation.md)
 - [One result, one external effect?](https://stream-processing-systems.github.io/en/course/reliability/one-result-one-external-effect.md)
+- [A queue or a log?](https://stream-processing-systems.github.io/en/course/distribution/a-queue-or-a-log.md)
+- [Splitting a log into partitions](https://stream-processing-systems.github.io/en/course/distribution/splitting-a-log-into-partitions.md)
+- [Topics, partitions, and offsets in Kafka](https://stream-processing-systems.github.io/en/course/distribution/topics-partitions-and-offsets-in-kafka.md)
+- [Consumer groups and replay in Kafka](https://stream-processing-systems.github.io/en/course/distribution/consumer-groups-and-replay-in-kafka.md)
+- [How long does Kafka keep history?](https://stream-processing-systems.github.io/en/course/distribution/how-long-does-kafka-keep-history.md)
+- [Capturing changes from a database](https://stream-processing-systems.github.io/en/course/distribution/capturing-changes-from-a-database.md)
 
 ## Русский
 
@@ -37,3 +43,9 @@
 - [Что должно пережить перезапуск?](https://stream-processing-systems.github.io/ru/course/reliability/what-must-survive-a-restart.md)
 - [Восстановление согласованного вычисления](https://stream-processing-systems.github.io/ru/course/reliability/recovering-a-consistent-computation.md)
 - [Один результат — один внешний эффект?](https://stream-processing-systems.github.io/ru/course/reliability/one-result-one-external-effect.md)
+- [Очередь или журнал?](https://stream-processing-systems.github.io/ru/course/distribution/a-queue-or-a-log.md)
+- [Разделение журнала на партиции](https://stream-processing-systems.github.io/ru/course/distribution/splitting-a-log-into-partitions.md)
+- [Топики, партиции и смещения в Kafka](https://stream-processing-systems.github.io/ru/course/distribution/topics-partitions-and-offsets-in-kafka.md)
+- [Группы потребителей и воспроизведение в Kafka](https://stream-processing-systems.github.io/ru/course/distribution/consumer-groups-and-replay-in-kafka.md)
+- [Как долго Kafka хранит историю?](https://stream-processing-systems.github.io/ru/course/distribution/how-long-does-kafka-keep-history.md)
+- [Захват изменений из базы данных](https://stream-processing-systems.github.io/ru/course/distribution/capturing-changes-from-a-database.md)

@@ -1,0 +1,380 @@
+<!DOCTYPE html><html lang="ru" dir="ltr" data-theme="dark" data-has-toc data-has-sidebar class="astro-g5ptsecz"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/><title>Разделение журнала на партиции | Потоковая обработка</title><link rel="canonical" href="https://stream-processing-systems.github.io/ru/course/distribution/splitting-a-log-into-partitions/"/><link rel="alternate" hreflang="en" href="https://stream-processing-systems.github.io/en/course/distribution/splitting-a-log-into-partitions/"/><link rel="alternate" hreflang="ru" href="https://stream-processing-systems.github.io/ru/course/distribution/splitting-a-log-into-partitions/"/><link rel="alternate" hreflang="x-default" href="https://stream-processing-systems.github.io/en/course/distribution/splitting-a-log-into-partitions/"/><link rel="sitemap" href="/sitemap-index.xml"/><link rel="apple-touch-icon" href="/apple-touch-icon.png"/><link rel="icon" href="/favicon.ico" sizes="32x32"/><link rel="manifest" href="/manifest.webmanifest"/><script src="/article-widgets.js" defer></script><script src="/course-progress.js" defer></script><script async src="https://www.googletagmanager.com/gtag/js?id=G-C0KBX4XM6J"></script><script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','G-C0KBX4XM6J');</script><script src="/language-preference.js" defer></script><link rel="shortcut icon" href="/favicon-32.png" type="image/png"/><meta name="generator" content="Astro v7.3.5"/><meta name="generator" content="Starlight v0.42.5"/><meta property="og:title" content="Разделение журнала на партиции"/><meta property="og:type" content="article"/><meta property="og:url" content="https://stream-processing-systems.github.io/ru/course/distribution/splitting-a-log-into-partitions/"/><meta property="og:locale" content="ru"/><meta property="og:description" content="Как журнал делят по ключу, чтобы несколько обработчиков поделили работу, какой порядок сохраняется после разделения и чего партиции сделать не могут."/><meta property="og:site_name" content="Потоковая обработка"/><meta name="twitter:card" content="summary_large_image"/><meta name="description" content="Как журнал делят по ключу, чтобы несколько обработчиков поделили работу, какой порядок сохраняется после разделения и чего партиции сделать не могут."/><meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)"/><meta name="theme-color" content="#2b2b30" media="(prefers-color-scheme: dark)"/><meta property="og:image" content="https://stream-processing-systems.github.io/og-image-ru.png"/><meta property="og:image:width" content="1200"/><meta property="og:image:height" content="630"/><meta name="twitter:image" content="https://stream-processing-systems.github.io/og-image-ru.png"/><script>
+	window.StarlightThemeProvider = (() => {
+		const storedTheme =
+			typeof localStorage !== 'undefined' && localStorage.getItem('starlight-theme');
+		const theme =
+			storedTheme ||
+			(window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark');
+		document.documentElement.dataset.theme = theme === 'light' ? 'light' : 'dark';
+		return {
+			updatePickers(theme = storedTheme || 'auto') {
+				document.querySelectorAll('starlight-theme-select').forEach((picker) => {
+					const select = picker.querySelector('select');
+					if (select) select.value = theme;
+					/** @type {HTMLTemplateElement | null} */
+					const tmpl = document.querySelector(`#theme-icons`);
+					const newIcon = tmpl && tmpl.content.querySelector('.' + theme);
+					if (newIcon) {
+						const oldIcon = picker.querySelector('svg.label-icon');
+						if (oldIcon) {
+							oldIcon.replaceChildren(...newIcon.cloneNode(true).childNodes);
+						}
+					}
+				});
+			},
+		};
+	})();
+</script><template id="theme-icons"><svg aria-hidden="true" class="light astro-hkc32dio" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M5 12a1 1 0 0 0-1-1H3a1 1 0 0 0 0 2h1a1 1 0 0 0 1-1Zm.64 5-.71.71a1 1 0 0 0 0 1.41 1 1 0 0 0 1.41 0l.71-.71A1 1 0 0 0 5.64 17ZM12 5a1 1 0 0 0 1-1V3a1 1 0 0 0-2 0v1a1 1 0 0 0 1 1Zm5.66 2.34a1 1 0 0 0 .7-.29l.71-.71a1 1 0 1 0-1.41-1.41l-.66.71a1 1 0 0 0 0 1.41 1 1 0 0 0 .66.29Zm-12-.29a1 1 0 0 0 1.41 0 1 1 0 0 0 0-1.41l-.71-.71a1.004 1.004 0 1 0-1.43 1.41l.73.71ZM21 11h-1a1 1 0 0 0 0 2h1a1 1 0 0 0 0-2Zm-2.64 6A1 1 0 0 0 17 18.36l.71.71a1 1 0 0 0 1.41 0 1 1 0 0 0 0-1.41l-.76-.66ZM12 6.5a5.5 5.5 0 1 0 5.5 5.5A5.51 5.51 0 0 0 12 6.5Zm0 9a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7Zm0 3.5a1 1 0 0 0-1 1v1a1 1 0 0 0 2 0v-1a1 1 0 0 0-1-1Z"/></svg><svg aria-hidden="true" class="dark astro-hkc32dio" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M21.64 13a1 1 0 0 0-1.05-.14 8.049 8.049 0 0 1-3.37.73 8.15 8.15 0 0 1-8.14-8.1 8.59 8.59 0 0 1 .25-2A1 1 0 0 0 8 2.36a10.14 10.14 0 1 0 14 11.69 1 1 0 0 0-.36-1.05Zm-9.5 6.69A8.14 8.14 0 0 1 7.08 5.22v.27a10.15 10.15 0 0 0 10.14 10.14 9.784 9.784 0 0 0 2.1-.22 8.11 8.11 0 0 1-7.18 4.32v-.04Z"/></svg><svg aria-hidden="true" class="auto astro-hkc32dio" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M21 14h-1V7a3 3 0 0 0-3-3H7a3 3 0 0 0-3 3v7H3a1 1 0 0 0-1 1v2a3 3 0 0 0 3 3h14a3 3 0 0 0 3-3v-2a1 1 0 0 0-1-1ZM6 7a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v7H6V7Zm14 10a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-1h16v1Z"/></svg></template><link rel="stylesheet" href="/_astro/print.ehPL0gv-.css" media="print"><link rel="stylesheet" href="/_astro/index.DGaUXbc6.css"><script type="module" src="/_astro/page.Dwipeu-R.js"></script></head><body class="astro-g5ptsecz"><a class="sl-skip-link astro-qb7clj6f" href="#_top">Перейти к содержимому</a><div class="page sl-flex astro-jvulkizc"><header class="header astro-jvulkizc"><div class="header astro-by6fddyj"><div class="title-wrapper sl-flex astro-by6fddyj"><a href="/ru" class="site-title sl-flex astro-6rvad3va"><img class="astro-6rvad3va" alt src="/_astro/logo.DKQKHWKq.png" width="192" height="192"><span class="astro-6rvad3va" translate="no">Потоковая обработка</span></a></div><div class="sl-flex print:hidden astro-by6fddyj"><site-search class="astro-223fx62r astro-b5kgnn7o" data-translations="{&quot;placeholder&quot;:&quot;Поиск&quot;,&quot;clear_search&quot;:&quot;Очистить&quot;,&quot;load_more&quot;:&quot;Показать ещё&quot;,&quot;search_label&quot;:&quot;Поиск по сайту&quot;,&quot;filters_label&quot;:&quot;Фильтры&quot;,&quot;zero_results&quot;:&quot;Ничего не найдено по запросу «[SEARCH_TERM]»&quot;,&quot;many_results&quot;:&quot;Найдено: [COUNT] по запросу «[SEARCH_TERM]»&quot;,&quot;one_result&quot;:&quot;Найдено: [COUNT] по запросу «[SEARCH_TERM]»&quot;,&quot;alt_search&quot;:&quot;Ничего не найдено по запросу «[SEARCH_TERM]». Результаты для «[DIFFERENT_TERM]»&quot;,&quot;search_suggestion&quot;:&quot;Ничего не найдено по запросу «[SEARCH_TERM]». Попробуйте другой запрос:&quot;,&quot;searching&quot;:&quot;Поиск «[SEARCH_TERM]»…&quot;}"><button data-open-modal disabled aria-label="Поиск" aria-keyshortcuts="Control+K" class="astro-b5kgnn7o"><svg aria-hidden="true" class="astro-b5kgnn7o astro-hkc32dio" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M21.71 20.29 18 16.61A9 9 0 1 0 16.61 18l3.68 3.68a.999.999 0 0 0 1.42 0 1 1 0 0 0 0-1.39ZM11 18a7 7 0 1 1 0-14 7 7 0 0 1 0 14Z"/></svg><span class="sl-hidden md:sl-block astro-b5kgnn7o" aria-hidden="true">Поиск</span><kbd class="sl-hidden md:sl-flex astro-b5kgnn7o" style="display: none;"><kbd class="astro-b5kgnn7o">Ctrl</kbd><kbd class="astro-b5kgnn7o">K</kbd></kbd></button><dialog style="padding:0" aria-label="Поиск" class="astro-b5kgnn7o"><div class="dialog-frame sl-flex astro-b5kgnn7o"><button data-close-modal class="sl-flex md:sl-hidden astro-b5kgnn7o">Отменить</button><div class="search-container astro-b5kgnn7o"><div id="starlight__search" class="astro-b5kgnn7o"></div></div></div></dialog></site-search><script>
+	(() => {
+		const openBtn = document.querySelector('button[data-open-modal]');
+		const shortcut = openBtn?.querySelector('kbd');
+		if (!openBtn || !(shortcut instanceof HTMLElement)) return;
+		const platformKey = shortcut.querySelector('kbd');
+		if (platformKey && /(Mac|iPhone|iPod|iPad)/i.test(navigator.platform)) {
+			platformKey.textContent = '⌘';
+			openBtn.setAttribute('aria-keyshortcuts', 'Meta+K');
+		}
+		shortcut.style.display = '';
+	})();
+</script><script type="module" src="/_astro/Search.astro_astro_type_script_index_0_lang.Bumivpjo.js"></script><div class="course-search-start astro-223fx62r" hidden><p class="course-search-start-heading astro-223fx62r">С чего начать</p><ul class="astro-223fx62r"><li class="astro-223fx62r"><a href="/ru/course/introduction/why-stream-processing/" class="astro-223fx62r"><span class="course-search-start-section astro-223fx62r">Введение</span><span class="course-search-start-title astro-223fx62r">Зачем нужна потоковая обработка?</span></a></li><li class="astro-223fx62r"><a href="/ru/course/fundamentals/what-does-an-event-tell-us/" class="astro-223fx62r"><span class="course-search-start-section astro-223fx62r">Основы</span><span class="course-search-start-title astro-223fx62r">Что сообщает событие?</span></a></li><li class="astro-223fx62r"><a href="/ru/course/time/event-time-and-processing-time/" class="astro-223fx62r"><span class="course-search-start-section astro-223fx62r">Время и окна</span><span class="course-search-start-title astro-223fx62r">Время события и время обработки</span></a></li><li class="astro-223fx62r"><a href="/ru/course/reliability/when-an-event-arrives-twice-or-never/" class="astro-223fx62r"><span class="course-search-start-section astro-223fx62r">Повторы, потери и восстановление</span><span class="course-search-start-title astro-223fx62r">Когда событие приходит дважды или не приходит вовсе</span></a></li><li class="astro-223fx62r"><a href="/ru/course/distribution/a-queue-or-a-log/" class="astro-223fx62r"><span class="course-search-start-section astro-223fx62r">Распределённая обработка и журнал</span><span class="course-search-start-title astro-223fx62r">Очередь или журнал?</span></a></li></ul></div><script type="module">var e=document.querySelector(`.course-search-start`),t=document.querySelector(`site-search .search-container`);e&&t&&(t.append(e),e.hidden=!1);</script></div><div class="sl-hidden md:sl-flex print:hidden right-group astro-by6fddyj"><div class="sl-flex social-icons astro-by6fddyj"></div><course-theme-toggle class="astro-e52pfzt5"><button type="button" class="course-theme-toggle astro-e52pfzt5" aria-label="Переключить тему" title="Переключить тему"><svg aria-hidden="true" class="course-theme-icon course-theme-moon astro-e52pfzt5 astro-hkc32dio" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M21.64 13a1 1 0 0 0-1.05-.14 8.049 8.049 0 0 1-3.37.73 8.15 8.15 0 0 1-8.14-8.1 8.59 8.59 0 0 1 .25-2A1 1 0 0 0 8 2.36a10.14 10.14 0 1 0 14 11.69 1 1 0 0 0-.36-1.05Zm-9.5 6.69A8.14 8.14 0 0 1 7.08 5.22v.27a10.15 10.15 0 0 0 10.14 10.14 9.784 9.784 0 0 0 2.1-.22 8.11 8.11 0 0 1-7.18 4.32v-.04Z"/></svg><svg aria-hidden="true" class="course-theme-icon course-theme-sun astro-e52pfzt5 astro-hkc32dio" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M5 12a1 1 0 0 0-1-1H3a1 1 0 0 0 0 2h1a1 1 0 0 0 1-1Zm.64 5-.71.71a1 1 0 0 0 0 1.41 1 1 0 0 0 1.41 0l.71-.71A1 1 0 0 0 5.64 17ZM12 5a1 1 0 0 0 1-1V3a1 1 0 0 0-2 0v1a1 1 0 0 0 1 1Zm5.66 2.34a1 1 0 0 0 .7-.29l.71-.71a1 1 0 1 0-1.41-1.41l-.66.71a1 1 0 0 0 0 1.41 1 1 0 0 0 .66.29Zm-12-.29a1 1 0 0 0 1.41 0 1 1 0 0 0 0-1.41l-.71-.71a1.004 1.004 0 1 0-1.43 1.41l.73.71ZM21 11h-1a1 1 0 0 0 0 2h1a1 1 0 0 0 0-2Zm-2.64 6A1 1 0 0 0 17 18.36l.71.71a1 1 0 0 0 1.41 0 1 1 0 0 0 0-1.41l-.76-.66ZM12 6.5a5.5 5.5 0 1 0 5.5 5.5A5.51 5.51 0 0 0 12 6.5Zm0 9a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7Zm0 3.5a1 1 0 0 0-1 1v1a1 1 0 0 0 2 0v-1a1 1 0 0 0-1-1Z"/></svg></button></course-theme-toggle><script type="module">var e=`starlight-theme`,t=()=>matchMedia(`(prefers-color-scheme: light)`).matches?`light`:`dark`,n=class extends HTMLElement{constructor(){super(),this.querySelector(`button`)?.addEventListener(`click`,()=>{let t=document.documentElement.dataset.theme===`light`?`dark`:`light`;document.documentElement.dataset.theme=t;try{localStorage.setItem(e,t)}catch{}})}};customElements.define(`course-theme-toggle`,n),matchMedia(`(prefers-color-scheme: light)`).addEventListener(`change`,()=>{let n=null;try{n=localStorage.getItem(e)}catch{}n!==`light`&&n!==`dark`&&(document.documentElement.dataset.theme=t())});</script><course-language-switch class="course-language-switch astro-e5tdbfla"><button type="button" class="course-language-button astro-e5tdbfla" aria-haspopup="true" aria-expanded="false" aria-label="Выбрать язык" title="Выбрать язык">RU</button><ul class="course-language-menu astro-e5tdbfla" hidden><li class="astro-e5tdbfla"><a href="/en/course/distribution/splitting-a-log-into-partitions/" hreflang="en" lang="en" class="astro-e5tdbfla">English</a></li></ul></course-language-switch><script type="module">var e=class extends HTMLElement{constructor(){super();let e=this.querySelector(`button`),t=this.querySelector(`ul`);if(!e||!t)return;let n=n=>{t.hidden=!n,e.setAttribute(`aria-expanded`,String(n))};e.addEventListener(`click`,()=>n(t.hidden)),document.addEventListener(`click`,e=>{this.contains(e.target)||n(!1)}),this.addEventListener(`keydown`,t=>{t.key===`Escape`&&(n(!1),e.focus())})}};customElements.define(`course-language-switch`,e);</script></div></div></header><nav class="sidebar print:hidden astro-jvulkizc" aria-label="Основное"><button popovertarget="starlight__sidebar" class="sl-menu-button sl-flex lg:sl-hidden print:hidden astro-typaf3vk"><svg aria-hidden="true" class="open-menu astro-typaf3vk astro-hkc32dio" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M3 8h18a1 1 0 1 0 0-2H3a1 1 0 0 0 0 2Zm18 8H3a1 1 0 0 0 0 2h18a1 1 0 0 0 0-2Zm0-5H3a1 1 0 0 0 0 2h18a1 1 0 0 0 0-2Z"/></svg><svg aria-hidden="true" class="close-menu astro-typaf3vk astro-hkc32dio" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="m13.41 12 6.3-6.29a1.004 1.004 0 1 0-1.42-1.42L12 10.59l-6.29-6.3a1.004 1.004 0 0 0-1.42 1.42l6.3 6.29-6.3 6.29a1 1 0 0 0 0 1.42.998.998 0 0 0 1.42 0l6.29-6.3 6.29 6.3a.999.999 0 0 0 1.42 0 1 1 0 0 0 0-1.42L13.41 12Z"/></svg><span class="sr-only astro-typaf3vk">Меню</span></button><script type="module">var e=class extends HTMLElement{constructor(){super();let e=matchMedia(`(min-width: 72em)`),t=()=>{this.popover=e.matches?null:`auto`};t(),e.addEventListener(`change`,()=>t()),this.addEventListener(`toggle`,({newState:e})=>this.trapFocus(e===`open`))}trapFocus(e){document.querySelectorAll(`.main-frame, .sl-skip-link`).forEach(t=>{t.toggleAttribute(`inert`,e)})}};customElements.define(`sl-sidebar-pane`,e);</script><sl-sidebar-pane popover id="starlight__sidebar" class="sidebar-pane astro-jvulkizc"><div class="sidebar-content sl-flex astro-jvulkizc"><div class="course-sidebar-brand astro-6vmd22lb"><a href="/ru" class="site-title sl-flex astro-6rvad3va"><img class="astro-6rvad3va" alt src="/_astro/logo.DKQKHWKq.png" width="192" height="192"><span class="astro-6rvad3va" translate="no">Потоковая обработка</span></a></div><sl-sidebar-state-persist data-hash="1snzsff" class="astro-ipdry5cl"><script aria-hidden="true">
+		(() => {
+			try {
+				if (!matchMedia('(min-width: 50em)').matches) return;
+				/** @type {HTMLElement | null} */
+				const target = document.querySelector('sl-sidebar-state-persist');
+				const state = JSON.parse(sessionStorage.getItem('sl-sidebar-state') || '0');
+				if (!target || !state || target.dataset.hash !== state.hash) return;
+				window._starlightScrollRestore = state.scroll;
+				customElements.define(
+					'sl-sidebar-restore',
+					class SidebarRestore extends HTMLElement {
+						connectedCallback() {
+							try {
+								const idx = parseInt(this.dataset.index || '');
+								const details = this.closest('details');
+								if (details && typeof state.open[idx] === 'boolean') details.open = state.open[idx];
+							} catch {}
+						}
+					}
+				);
+			} catch {}
+		})();
+	</script><ul class="top-level astro-rmhv4bp6"><li class="astro-rmhv4bp6"><details open class="astro-rmhv4bp6"><summary class="astro-rmhv4bp6"><span class="group-label astro-rmhv4bp6"><span class="large astro-rmhv4bp6">Введение</span></span><svg aria-hidden="true" class="caret astro-rmhv4bp6 astro-hkc32dio" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.25rem;"><path d="m14.83 11.29-4.24-4.24a1 1 0 1 0-1.42 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41 1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.24-4.24a1.002 1.002 0 0 0 0-1.42Z"/></svg></summary><sl-sidebar-restore data-index="0"></sl-sidebar-restore><ul class="astro-rmhv4bp6"><li class="astro-rmhv4bp6"><a href="/ru/course/introduction/why-stream-processing/" class="astro-rmhv4bp6"><span class="astro-rmhv4bp6">Зачем нужна потоковая обработка?</span></a></li></ul></details></li><li class="astro-rmhv4bp6"><details open class="astro-rmhv4bp6"><summary class="astro-rmhv4bp6"><span class="group-label astro-rmhv4bp6"><span class="large astro-rmhv4bp6">Основы</span></span><svg aria-hidden="true" class="caret astro-rmhv4bp6 astro-hkc32dio" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.25rem;"><path d="m14.83 11.29-4.24-4.24a1 1 0 1 0-1.42 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41 1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.24-4.24a1.002 1.002 0 0 0 0-1.42Z"/></svg></summary><sl-sidebar-restore data-index="1"></sl-sidebar-restore><ul class="astro-rmhv4bp6"><li class="astro-rmhv4bp6"><a href="/ru/course/fundamentals/what-does-an-event-tell-us/" class="astro-rmhv4bp6"><span class="astro-rmhv4bp6">Что сообщает событие?</span></a></li><li class="astro-rmhv4bp6"><a href="/ru/course/fundamentals/from-events-to-results/" class="astro-rmhv4bp6"><span class="astro-rmhv4bp6">От событий к результату</span></a></li><li class="astro-rmhv4bp6"><a href="/ru/course/fundamentals/when-one-event-is-not-enough/" class="astro-rmhv4bp6"><span class="astro-rmhv4bp6">Когда одного события недостаточно</span></a></li><li class="astro-rmhv4bp6"><a href="/ru/course/fundamentals/grouping-events-by-key/" class="astro-rmhv4bp6"><span class="astro-rmhv4bp6">Группировка событий по ключу</span></a></li></ul></details></li><li class="astro-rmhv4bp6"><details open class="astro-rmhv4bp6"><summary class="astro-rmhv4bp6"><span class="group-label astro-rmhv4bp6"><span class="large astro-rmhv4bp6">Время и окна</span></span><svg aria-hidden="true" class="caret astro-rmhv4bp6 astro-hkc32dio" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.25rem;"><path d="m14.83 11.29-4.24-4.24a1 1 0 1 0-1.42 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41 1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.24-4.24a1.002 1.002 0 0 0 0-1.42Z"/></svg></summary><sl-sidebar-restore data-index="2"></sl-sidebar-restore><ul class="astro-rmhv4bp6"><li class="astro-rmhv4bp6"><a href="/ru/course/time/event-time-and-processing-time/" class="astro-rmhv4bp6"><span class="astro-rmhv4bp6">Время события и время обработки</span></a></li><li class="astro-rmhv4bp6"><a href="/ru/course/time/putting-events-into-time-windows/" class="astro-rmhv4bp6"><span class="astro-rmhv4bp6">Как разложить события по временным окнам</span></a></li><li class="astro-rmhv4bp6"><a href="/ru/course/time/sliding-and-session-windows/" class="astro-rmhv4bp6"><span class="astro-rmhv4bp6">Скользящие и сеансовые окна</span></a></li><li class="astro-rmhv4bp6"><a href="/ru/course/time/how-far-has-the-stream-progressed/" class="astro-rmhv4bp6"><span class="astro-rmhv4bp6">Насколько продвинулся поток?</span></a></li><li class="astro-rmhv4bp6"><a href="/ru/course/time/when-is-a-window-result-ready/" class="astro-rmhv4bp6"><span class="astro-rmhv4bp6">Когда результат окна готов?</span></a></li></ul></details></li><li class="astro-rmhv4bp6"><details open class="astro-rmhv4bp6"><summary class="astro-rmhv4bp6"><span class="group-label astro-rmhv4bp6"><span class="large astro-rmhv4bp6">Повторы, потери и восстановление</span></span><svg aria-hidden="true" class="caret astro-rmhv4bp6 astro-hkc32dio" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.25rem;"><path d="m14.83 11.29-4.24-4.24a1 1 0 1 0-1.42 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41 1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.24-4.24a1.002 1.002 0 0 0 0-1.42Z"/></svg></summary><sl-sidebar-restore data-index="3"></sl-sidebar-restore><ul class="astro-rmhv4bp6"><li class="astro-rmhv4bp6"><a href="/ru/course/reliability/when-an-event-arrives-twice-or-never/" class="astro-rmhv4bp6"><span class="astro-rmhv4bp6">Когда событие приходит дважды или не приходит вовсе</span></a></li><li class="astro-rmhv4bp6"><a href="/ru/course/reliability/what-must-survive-a-restart/" class="astro-rmhv4bp6"><span class="astro-rmhv4bp6">Что должно пережить перезапуск?</span></a></li><li class="astro-rmhv4bp6"><a href="/ru/course/reliability/recovering-a-consistent-computation/" class="astro-rmhv4bp6"><span class="astro-rmhv4bp6">Восстановление согласованного вычисления</span></a></li><li class="astro-rmhv4bp6"><a href="/ru/course/reliability/one-result-one-external-effect/" class="astro-rmhv4bp6"><span class="astro-rmhv4bp6">Один результат — один внешний эффект?</span></a></li></ul></details></li><li class="astro-rmhv4bp6"><details open class="astro-rmhv4bp6"><summary class="astro-rmhv4bp6"><span class="group-label astro-rmhv4bp6"><span class="large astro-rmhv4bp6">Распределённая обработка и журнал</span></span><svg aria-hidden="true" class="caret astro-rmhv4bp6 astro-hkc32dio" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.25rem;"><path d="m14.83 11.29-4.24-4.24a1 1 0 1 0-1.42 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41 1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.24-4.24a1.002 1.002 0 0 0 0-1.42Z"/></svg></summary><sl-sidebar-restore data-index="4"></sl-sidebar-restore><ul class="astro-rmhv4bp6"><li class="astro-rmhv4bp6"><a href="/ru/course/distribution/a-queue-or-a-log/" class="astro-rmhv4bp6"><span class="astro-rmhv4bp6">Очередь или журнал?</span></a></li><li class="astro-rmhv4bp6"><a href="/ru/course/distribution/splitting-a-log-into-partitions/" aria-current="page" class="astro-rmhv4bp6"><span class="astro-rmhv4bp6">Разделение журнала на партиции</span></a></li><li class="astro-rmhv4bp6"><a href="/ru/course/distribution/topics-partitions-and-offsets-in-kafka/" class="astro-rmhv4bp6"><span class="astro-rmhv4bp6">Топики, партиции и смещения в Kafka</span></a></li><li class="astro-rmhv4bp6"><a href="/ru/course/distribution/consumer-groups-and-replay-in-kafka/" class="astro-rmhv4bp6"><span class="astro-rmhv4bp6">Группы потребителей и воспроизведение в Kafka</span></a></li><li class="astro-rmhv4bp6"><a href="/ru/course/distribution/how-long-does-kafka-keep-history/" class="astro-rmhv4bp6"><span class="astro-rmhv4bp6">Как долго Kafka хранит историю?</span></a></li><li class="astro-rmhv4bp6"><a href="/ru/course/distribution/capturing-changes-from-a-database/" class="astro-rmhv4bp6"><span class="astro-rmhv4bp6">Захват изменений из базы данных</span></a></li></ul></details></li></ul><script aria-hidden="true">
+		(() => {
+			const scroller = document.getElementById('starlight__sidebar');
+			if (!window._starlightScrollRestore || !scroller) return;
+			scroller.scrollTop = window._starlightScrollRestore;
+			delete window._starlightScrollRestore;
+		})();
+	</script></sl-sidebar-state-persist><div class="md:sl-hidden"><div class="mobile-preferences sl-flex astro-p4azlveh"><div class="social-icons astro-p4azlveh"></div><course-theme-toggle class="astro-e52pfzt5"><button type="button" class="course-theme-toggle astro-e52pfzt5" aria-label="Переключить тему" title="Переключить тему"><svg aria-hidden="true" class="course-theme-icon course-theme-moon astro-e52pfzt5 astro-hkc32dio" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M21.64 13a1 1 0 0 0-1.05-.14 8.049 8.049 0 0 1-3.37.73 8.15 8.15 0 0 1-8.14-8.1 8.59 8.59 0 0 1 .25-2A1 1 0 0 0 8 2.36a10.14 10.14 0 1 0 14 11.69 1 1 0 0 0-.36-1.05Zm-9.5 6.69A8.14 8.14 0 0 1 7.08 5.22v.27a10.15 10.15 0 0 0 10.14 10.14 9.784 9.784 0 0 0 2.1-.22 8.11 8.11 0 0 1-7.18 4.32v-.04Z"/></svg><svg aria-hidden="true" class="course-theme-icon course-theme-sun astro-e52pfzt5 astro-hkc32dio" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M5 12a1 1 0 0 0-1-1H3a1 1 0 0 0 0 2h1a1 1 0 0 0 1-1Zm.64 5-.71.71a1 1 0 0 0 0 1.41 1 1 0 0 0 1.41 0l.71-.71A1 1 0 0 0 5.64 17ZM12 5a1 1 0 0 0 1-1V3a1 1 0 0 0-2 0v1a1 1 0 0 0 1 1Zm5.66 2.34a1 1 0 0 0 .7-.29l.71-.71a1 1 0 1 0-1.41-1.41l-.66.71a1 1 0 0 0 0 1.41 1 1 0 0 0 .66.29Zm-12-.29a1 1 0 0 0 1.41 0 1 1 0 0 0 0-1.41l-.71-.71a1.004 1.004 0 1 0-1.43 1.41l.73.71ZM21 11h-1a1 1 0 0 0 0 2h1a1 1 0 0 0 0-2Zm-2.64 6A1 1 0 0 0 17 18.36l.71.71a1 1 0 0 0 1.41 0 1 1 0 0 0 0-1.41l-.76-.66ZM12 6.5a5.5 5.5 0 1 0 5.5 5.5A5.51 5.51 0 0 0 12 6.5Zm0 9a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7Zm0 3.5a1 1 0 0 0-1 1v1a1 1 0 0 0 2 0v-1a1 1 0 0 0-1-1Z"/></svg></button></course-theme-toggle><course-language-switch class="course-language-switch astro-e5tdbfla"><button type="button" class="course-language-button astro-e5tdbfla" aria-haspopup="true" aria-expanded="false" aria-label="Выбрать язык" title="Выбрать язык">RU</button><ul class="course-language-menu astro-e5tdbfla" hidden><li class="astro-e5tdbfla"><a href="/en/course/distribution/splitting-a-log-into-partitions/" hreflang="en" lang="en" class="astro-e5tdbfla">English</a></li></ul></course-language-switch></div></div></div></sl-sidebar-pane></nav><div class="main-frame astro-jvulkizc"><script type="module">var e=document.getElementById(`starlight__sidebar`),t=e?.querySelector(`sl-sidebar-state-persist`),n=`sl-sidebar-state`,r=()=>{let r=[],i=t?.dataset.hash||``;try{let e=sessionStorage.getItem(n),t=JSON.parse(e||`{}`);Array.isArray(t.open)&&t.hash===i&&(r=t.open)}catch{}return{hash:i,open:r,scroll:e?.scrollTop||0}},i=e=>{try{sessionStorage.setItem(n,JSON.stringify(e))}catch{}},a=()=>i(r()),o=(e,t)=>{let n=r();n.open[t]=e,i(n)};t?.addEventListener(`click`,e=>{if(!(e.target instanceof Element))return;let t=e.target.closest(`summary`)?.closest(`details`);if(!t)return;let n=t.querySelector(`sl-sidebar-restore`),r=parseInt(n?.dataset.index||``);isNaN(r)||o(!t.open,r)}),addEventListener(`visibilitychange`,()=>{document.visibilityState===`hidden`&&a()});</script><div class="md:sl-flex astro-z2restcr"><aside class="right-sidebar-container print:hidden astro-z2restcr"><div class="right-sidebar astro-z2restcr"><div class="md:sl-hidden astro-6c243z32"><mobile-starlight-toc data-min-h="2" data-max-h="3" class="astro-66cqc7ze"><nav aria-labelledby="starlight__on-this-page--mobile" class="astro-66cqc7ze"><details id="starlight__mobile-toc" class="astro-66cqc7ze"><summary id="starlight__on-this-page--mobile" class="sl-flex astro-66cqc7ze"><span class="toggle sl-flex astro-66cqc7ze">На этой странице<svg aria-hidden="true" class="caret astro-66cqc7ze astro-hkc32dio" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1rem;"><path d="m14.83 11.29-4.24-4.24a1 1 0 1 0-1.42 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41 1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.24-4.24a1.002 1.002 0 0 0 0-1.42Z"/></svg></span><span class="display-current astro-66cqc7ze"></span></summary><div class="dropdown astro-66cqc7ze"><ul class="isMobile astro-jugkfwgx" style="--depth: 0;"><li style="--depth: 0;" class="astro-jugkfwgx"><a href="#_top" style="--depth: 0;" class="astro-jugkfwgx"><span style="--depth: 0;" class="astro-jugkfwgx">Обзор</span></a></li><li style="--depth: 0;" class="astro-jugkfwgx"><a href="#разделение-журнала-по-ключу" style="--depth: 0;" class="astro-jugkfwgx"><span style="--depth: 0;" class="astro-jugkfwgx">Разделение журнала по ключу</span></a></li><li style="--depth: 0;" class="astro-jugkfwgx"><a href="#порядок-внутри-партиции" style="--depth: 0;" class="astro-jugkfwgx"><span style="--depth: 0;" class="astro-jugkfwgx">Порядок внутри партиции</span></a></li><li style="--depth: 0;" class="astro-jugkfwgx"><a href="#прогресс-для-каждой-партиции" style="--depth: 0;" class="astro-jugkfwgx"><span style="--depth: 0;" class="astro-jugkfwgx">Прогресс для каждой партиции</span></a></li><li style="--depth: 0;" class="astro-jugkfwgx"><a href="#передача-партиции-другому-обработчику" style="--depth: 0;" class="astro-jugkfwgx"><span style="--depth: 0;" class="astro-jugkfwgx">Передача партиции другому обработчику</span></a></li><li style="--depth: 0;" class="astro-jugkfwgx"><a href="#чего-партиции-не-могут" style="--depth: 0;" class="astro-jugkfwgx"><span style="--depth: 0;" class="astro-jugkfwgx">Чего партиции не могут</span></a></li><li style="--depth: 0;" class="astro-jugkfwgx"><a href="#что-запомнить" style="--depth: 0;" class="astro-jugkfwgx"><span style="--depth: 0;" class="astro-jugkfwgx">Что запомнить</span></a></li><li style="--depth: 0;" class="astro-jugkfwgx"><a href="#источники" style="--depth: 0;" class="astro-jugkfwgx"><span style="--depth: 0;" class="astro-jugkfwgx">Источники</span></a></li><li style="--depth: 0;" class="astro-jugkfwgx"><a href="#что-почитать" style="--depth: 0;" class="astro-jugkfwgx"><span style="--depth: 0;" class="astro-jugkfwgx">Что почитать</span></a></li></ul></div></details></nav></mobile-starlight-toc><script type="module" src="/_astro/MobileTableOfContents.astro_astro_type_script_index_0_lang.C3fM4Kra.js"></script></div><div class="right-sidebar-panel sl-hidden md:sl-block astro-6c243z32"><div class="sl-container astro-6c243z32"><starlight-toc data-min-h="2" data-max-h="3"><nav aria-labelledby="starlight__on-this-page"><h2 id="starlight__on-this-page">На этой странице</h2><ul class="astro-jugkfwgx" style="--depth: 0;"><li style="--depth: 0;" class="astro-jugkfwgx"><a href="#_top" style="--depth: 0;" class="astro-jugkfwgx"><span style="--depth: 0;" class="astro-jugkfwgx">Обзор</span></a></li><li style="--depth: 0;" class="astro-jugkfwgx"><a href="#разделение-журнала-по-ключу" style="--depth: 0;" class="astro-jugkfwgx"><span style="--depth: 0;" class="astro-jugkfwgx">Разделение журнала по ключу</span></a></li><li style="--depth: 0;" class="astro-jugkfwgx"><a href="#порядок-внутри-партиции" style="--depth: 0;" class="astro-jugkfwgx"><span style="--depth: 0;" class="astro-jugkfwgx">Порядок внутри партиции</span></a></li><li style="--depth: 0;" class="astro-jugkfwgx"><a href="#прогресс-для-каждой-партиции" style="--depth: 0;" class="astro-jugkfwgx"><span style="--depth: 0;" class="astro-jugkfwgx">Прогресс для каждой партиции</span></a></li><li style="--depth: 0;" class="astro-jugkfwgx"><a href="#передача-партиции-другому-обработчику" style="--depth: 0;" class="astro-jugkfwgx"><span style="--depth: 0;" class="astro-jugkfwgx">Передача партиции другому обработчику</span></a></li><li style="--depth: 0;" class="astro-jugkfwgx"><a href="#чего-партиции-не-могут" style="--depth: 0;" class="astro-jugkfwgx"><span style="--depth: 0;" class="astro-jugkfwgx">Чего партиции не могут</span></a></li><li style="--depth: 0;" class="astro-jugkfwgx"><a href="#что-запомнить" style="--depth: 0;" class="astro-jugkfwgx"><span style="--depth: 0;" class="astro-jugkfwgx">Что запомнить</span></a></li><li style="--depth: 0;" class="astro-jugkfwgx"><a href="#источники" style="--depth: 0;" class="astro-jugkfwgx"><span style="--depth: 0;" class="astro-jugkfwgx">Источники</span></a></li><li style="--depth: 0;" class="astro-jugkfwgx"><a href="#что-почитать" style="--depth: 0;" class="astro-jugkfwgx"><span style="--depth: 0;" class="astro-jugkfwgx">Что почитать</span></a></li></ul></nav></starlight-toc><script type="module" src="/_astro/TableOfContents.astro_astro_type_script_index_0_lang.BpJaGz7G.js"></script></div></div><script type="module">async function e(){let e=document.querySelector(`starlight-toc`);if(!e)return;let t=[...e.querySelectorAll(`a[href^="#"]`)].map(e=>document.getElementById(decodeURIComponent(e.hash.slice(1)))).filter(e=>e!==null);if(t.length<2)return;await document.fonts.ready;let n=()=>{let e=parseFloat(getComputedStyle(document.documentElement).scrollPaddingTop)||0,n=t[0];for(let r of t){let t=parseFloat(getComputedStyle(r).scrollMarginTop)||0;if(r.getBoundingClientRect().top>e+t+2)break;n=r}let r=new URL(window.location.href);r.hash=n.id===`_top`?``:n.id,r.href!==window.location.href&&history.replaceState(history.state,``,r)},r;requestAnimationFrame(()=>{window.addEventListener(`scroll`,()=>{clearTimeout(r),r=setTimeout(n,150)},{passive:!0})})}e();</script></div></aside><div class="main-pane astro-z2restcr"><main data-pagefind-body class="astro-g5ptsecz" lang="ru" dir="ltr"><div class="content-panel astro-a7po4psb"><div class="sl-container astro-a7po4psb"><div class="article-heading astro-rpssgujp"><p class="article-section astro-rpssgujp">Распределённая обработка и журнал</p><h1 id="_top" class="astro-rpssgujp">Разделение журнала на партиции</h1><p class="article-description astro-rpssgujp">Как журнал делят по ключу, чтобы несколько обработчиков поделили работу, какой порядок сохраняется после разделения и чего партиции сделать не могут.</p><details class="course-ai astro-rpssgujp"><summary class="astro-rpssgujp">Изучать с ИИ-ассистентом 🤖</summary><div class="course-ai-body astro-rpssgujp"><p class="course-ai-hint astro-g73rzpxe">Скопируйте промпт и вставьте его в чат с ИИ-ассистентом.</p><div class="expressive-code astro-g73rzpxe"><link rel="stylesheet" href="/_astro/ec.w36nc.css"><script type="module" src="/_astro/ec.0vx5m.js"></script><figure class="frame not-content"><figcaption class="header"></figcaption><pre data-language="text" class="wrap" style="--ecMaxLine:224ch"><code><div class="ec-line"><div class="code"><span style="--0:#d6deeb;--1:#403f53">Ты — преподаватель курса «Потоковая обработка».</span></div></div><div class="ec-line"><div class="code"><span style="--0:#d6deeb;--1:#403f53">Тема: «Разделение журнала на партиции»</span></div></div><div class="ec-line"><div class="code"><span style="--0:#d6deeb;--1:#403f53">О чём: Как журнал делят по ключу, чтобы несколько обработчиков поделили работу, какой порядок сохраняется после разделения и чего партиции сделать не могут.</span></div></div><div class="ec-line"><div class="code"><span style="--0:#d6deeb;--1:#403f53">Текст статьи в Markdown: https://stream-processing-systems.github.io/ru/course/distribution/splitting-a-log-into-partitions.md</span></div></div><div class="ec-line"><div class="code"><span style="--0:#d6deeb;--1:#403f53">Опирайся на эту статью. Сначала спроси, как мне удобнее: кратко, пошагово или глубоко с вопросами на понимание. Объясняй на примере из статьи и в её терминах. Если добавляешь сведения, которых в статье нет, явно это отмечай.</span></div></div></code></pre><div class="copy"><div aria-live="polite"></div><button title="Копировать" data-copied="Скопировано!" data-code="Ты — преподаватель курса «Потоковая обработка».Тема: «Разделение журнала на партиции»О чём: Как журнал делят по ключу, чтобы несколько обработчиков поделили работу, какой порядок сохраняется после разделения и чего партиции сделать не могут.Текст статьи в Markdown: https://stream-processing-systems.github.io/ru/course/distribution/splitting-a-log-into-partitions.mdОпирайся на эту статью. Сначала спроси, как мне удобнее: кратко, пошагово или глубоко с вопросами на понимание. Объясняй на примере из статьи и в её терминах. Если добавляешь сведения, которых в статье нет, явно это отмечай."><div></div></button></div></figure></div></div></details></div></div></div><div class="content-panel astro-a7po4psb"><div class="sl-container astro-a7po4psb"><div class="sl-markdown-content" data-course-widgets data-widget-labels="{&quot;close&quot;:&quot;Закрыть&quot;,&quot;definition&quot;:&quot;Определение:&quot;,&quot;diagram&quot;:&quot;Просмотр диаграммы&quot;,&quot;zoomIn&quot;:&quot;Увеличить&quot;,&quot;zoomOut&quot;:&quot;Уменьшить&quot;,&quot;fit&quot;:&quot;Вписать&quot;,&quot;original&quot;:&quot;Открыть оригинал&quot;,&quot;zoom&quot;:&quot;Масштаб&quot;,&quot;diagramHint&quot;:&quot;Кнопки + / − меняют масштаб. Прокрутка перемещает диаграмму.&quot;,&quot;definitions&quot;:&quot;Определения&quot;}"><p>Записи о расходе нашего ИИ-ассистента теперь попадают в
+<a href="/ru/course/distribution/a-queue-or-a-log/" data-course-link="">журнал</a> (log): шлюз дописывает их, а читатели помнят
+свои позиции. Три обработчика (processor), A, B и C, готовы их учитывать. Если
+они берут записи по очереди, записи <code dir="auto">acme</code> расходятся между ними: ни один
+обработчик не знает итога аккаунта целиком, письмо о 1 500 токенах уходит не
+вовремя, а копию <code dir="auto">u-102</code> можно учесть дважды.</p>
+<p>Все записи одного аккаунта должны попадать к одному обработчику. Поэтому
+компания делит журнал по аккаунтам на три части, по одной на обработчик. Как
+выбрать часть для записи, что станет с порядком записей и что сохраняет
+обработчик в контрольной точке (checkpoint), когда читает только одну часть?</p>
+<div class="sl-heading-wrapper level-h2"><h2 id="разделение-журнала-по-ключу">Разделение журнала по ключу</h2><a class="sl-anchor-link" href="#разделение-журнала-по-ключу"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 1 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 0 0-1.42-1.42m8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 1 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 0 0 0 1.42 1 1 0 0 0 1.42 0l3.88-3.89a4.49 4.49 0 0 0 0-6.33M8.83 15.17a1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.92-4.92a1 1 0 1 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42"></path></svg></span><span class="sr-only" data-pagefind-ignore="">Заголовок раздела «Разделение журнала по ключу»</span></a></div>
+<p>Каждая часть разделённого журнала называется <strong>партицией</strong> (partition).
+Партиция — самостоятельный журнал: записи дописываются в её конец, позиции у
+неё свои, и прочитанные записи в ней остаются. В журнале расхода теперь
+партиции 0, 1 и 2. Обработчик A читает партицию 0, B — 1, C — 2.</p>
+<p>Шлюз выбирает партицию для каждой записи по её
+<a href="/ru/course/fundamentals/grouping-events-by-key/" data-course-link="">ключу</a> (key), то есть по аккаунту.
+Он вычисляет из ID аккаунта число, которое называется <strong>хешем</strong> (hash), и
+берёт остаток от деления этого числа на количество партиций. Один и тот же ID
+всегда даёт один и тот же хеш, поэтому все записи аккаунта попадают в одну
+партицию. Так работает производитель (producer) Kafka, когда у записи есть
+ключ<sup><a href="https://kafka.apache.org/44/configuration/producer-configs/" id="user-content-fnref-1" data-footnote-ref="" title="Apache Kafka 4.4: Producer Configs, partitioner.class" target="_blank" rel="noopener noreferrer">1</a></sup>. Допустим, правило дало вот что:</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Аккаунт</th><th>Партиция</th><th>Обработчик</th></tr></thead><tbody><tr><td><code dir="auto">acme</code></td><td>0</td><td>A</td></tr><tr><td><code dir="auto">beta</code></td><td>1</td><td>B</td></tr><tr><td><code dir="auto">gamma</code></td><td>2</td><td>C</td></tr><tr><td><code dir="auto">delta</code></td><td>0</td><td>A</td></tr></tbody></table>
+<p>Обработчик A хранит состояние (state) <code dir="auto">acme</code> и <code dir="auto">delta</code>, у каждого аккаунта
+своя строка. Общая партиция не смешивает их итоги: какую строку меняет запись,
+по-прежнему решает ключ. Партиция решает только, у какого обработчика эта
+строка лежит.</p>
+<figure class="course-diagram">
+<svg viewBox="0 0 384 256" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="keys-partition-and-state-title keys-partition-and-state-desc">
+<title id="keys-partition-and-state-title">Разделение журнала по ключу</title>
+<desc id="keys-partition-and-state-desc">Ключ направляет acme и delta в партицию 0 к обработчику A, который хранит отдельный итог каждого аккаунта.</desc>
+  <style>
+    .cd-paper { fill: var(--sl-color-bg, #ffffff); }
+    .cd-name { fill: var(--sl-color-white, #18181b); font: 600 14px var(--sl-font, system-ui, sans-serif); }
+    .cd-sub { fill: var(--sl-color-gray-3, #52525b); font: 12px var(--sl-font, system-ui, sans-serif); }
+    .cd-code { fill: var(--sl-color-gray-3, #52525b); font: 12px var(--sl-font-mono, ui-monospace, monospace); }
+    .cd-label { fill: var(--sl-color-gray-3, #52525b); font: 11px var(--sl-font-mono, ui-monospace, monospace); letter-spacing: 0.06em; }
+    .cd-zone-label { fill: var(--sl-color-text-accent, #6366f1); font: 600 11px var(--sl-font-mono, ui-monospace, monospace); letter-spacing: 0.14em; }
+    .cd-arrow { stroke: var(--sl-color-gray-3, #52525b); stroke-width: 1.2; }
+    .cd-arrow-head { fill: var(--sl-color-gray-3, #52525b); }
+    .cd-zone { fill: var(--sl-color-accent-low, #eef0fe); stroke: var(--sl-color-accent, #6366f1); stroke-width: 1; }
+    .cd-node { fill: var(--sl-color-bg, #ffffff); stroke: var(--sl-color-gray-3, #52525b); stroke-width: 1; }
+    .cd-input { fill: color-mix(in srgb, var(--sl-color-gray-3, #52525b) 10%, var(--sl-color-bg, #ffffff)); stroke: var(--sl-color-gray-4, #a1a1aa); stroke-width: 1; }
+    .cd-store { fill: color-mix(in srgb, var(--sl-color-white, #18181b) 5%, var(--sl-color-bg, #ffffff)); stroke: var(--sl-color-gray-3, #52525b); stroke-width: 1; }
+    .cd-accent { fill: var(--sl-color-accent-low, #eef0fe); stroke: var(--sl-color-accent, #6366f1); stroke-width: 1; }
+    .cd-arrow-accent { stroke: var(--sl-color-accent, #6366f1); stroke-width: 1.2; }
+    .cd-arrow-accent-head { fill: var(--sl-color-accent, #6366f1); }
+    .cd-track { stroke: var(--sl-color-gray-4, #a1a1aa); stroke-width: 1; }
+    .cd-guide { stroke: var(--sl-color-gray-4, #a1a1aa); stroke-width: 1; stroke-dasharray: 2 4; }
+    .cd-dot { fill: var(--sl-color-gray-3, #52525b); }
+    .cd-accent-text { fill: var(--sl-color-text-accent, #6366f1); }
+    .cd-orange { fill: color-mix(in srgb, var(--course-orange, #c2410c) 12%, var(--sl-color-bg, #ffffff)); stroke: var(--course-orange, #c2410c); stroke-width: 1; }
+    .cd-orange-text { fill: var(--course-orange, #c2410c); }
+    .cd-teal { fill: color-mix(in srgb, var(--course-teal, #0f766e) 12%, var(--sl-color-bg, #ffffff)); stroke: var(--course-teal, #0f766e); stroke-width: 1; }
+    .cd-teal-text { fill: var(--course-teal, #0f766e); }
+  </style>
+<defs>
+<marker id="keys-partition-and-state-arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon class="cd-arrow-head" points="0 0, 8 3, 0 6"></polygon></marker>
+</defs>
+<line class="cd-arrow" x1="192" y1="60" x2="192" y2="100" marker-end="url(#keys-partition-and-state-arrow)"></line>
+<text class="cd-label" x="204" y="84">ПО КЛЮЧУ</text>
+<line class="cd-arrow" x1="192" y1="156" x2="192" y2="196" marker-end="url(#keys-partition-and-state-arrow)"></line>
+<text class="cd-label" x="204" y="180">ВСЯ ПАРТИЦИЯ</text>
+<rect class="cd-input" x="48" y="4" width="288" height="56" rx="6"></rect>
+<text class="cd-name" x="192" y="28" text-anchor="middle">Шлюз</text>
+<text class="cd-code" x="192" y="46" text-anchor="middle">key: acme / delta</text>
+<rect class="cd-accent" x="48" y="100" width="288" height="56" rx="6"></rect>
+<text class="cd-name" x="192" y="124" text-anchor="middle">Партиция 0</text>
+<text class="cd-sub" x="192" y="142" text-anchor="middle">один журнал для двух аккаунтов</text>
+<rect class="cd-store" x="48" y="196" width="288" height="56" rx="6"></rect>
+<text class="cd-name" x="192" y="220" text-anchor="middle">Обработчик A</text>
+<text class="cd-code" x="192" y="238" text-anchor="middle">state[acme] · state[delta]</text>
+</svg>
+</figure>
+<p>Вот начало партиции 0 утром 2 февраля:</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Позиция</th><th>Запись</th><th>Аккаунт</th><th>Токены</th></tr></thead><tbody><tr><td>1</td><td><code dir="auto">u-101</code></td><td><code dir="auto">acme</code></td><td>1 000</td></tr><tr><td>2</td><td><code dir="auto">u-102</code></td><td><code dir="auto">acme</code></td><td>400</td></tr><tr><td>3</td><td><code dir="auto">u-105</code></td><td><code dir="auto">delta</code></td><td>300</td></tr><tr><td>4</td><td><code dir="auto">u-102</code>, повторная отправка</td><td><code dir="auto">acme</code></td><td>400</td></tr><tr><td>5</td><td><code dir="auto">u-103</code></td><td><code dir="auto">acme</code></td><td>600</td></tr></tbody></table>
+<p>Всё, что ломалось в очереди, снова работает. Обработчик A видит каждую запись
+<code dir="auto">acme</code>, поэтому знает итог целиком. Он замечает момент, когда аккаунт
+переходит 1 500 токенов, на <code dir="auto">u-103</code>, и тогда же отправляет письмо. У копии
+<code dir="auto">u-102</code> тот же ключ, что у оригинала, поэтому она попадает в ту же партицию, и
+A узнаёт её ID. Тем временем B и C учитывают свои аккаунты, и никто из троих не
+ждёт остальных.</p>
+<div class="sl-heading-wrapper level-h2"><h2 id="порядок-внутри-партиции">Порядок внутри партиции</h2><a class="sl-anchor-link" href="#порядок-внутри-партиции"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 1 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 0 0-1.42-1.42m8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 1 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 0 0 0 1.42 1 1 0 0 0 1.42 0l3.88-3.89a4.49 4.49 0 0 0 0-6.33M8.83 15.17a1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.92-4.92a1 1 0 1 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42"></path></svg></span><span class="sr-only" data-pagefind-ignore="">Заголовок раздела «Порядок внутри партиции»</span></a></div>
+<p>Партиция хранит записи в порядке дописывания, и каждый читатель читает их в
+этом порядке<sup><a href="https://kafka.apache.org/44/getting-started/introduction/" id="user-content-fnref-2" data-footnote-ref="" title="Apache Kafka 4.4: Introduction, Main Concepts and Terminology" target="_blank" rel="noopener noreferrer">2</a></sup>. Общего порядка у разных партиций нет. Запись, которую <code dir="auto">beta</code>
+отправил после <code dir="auto">u-103</code>, лежит в партиции 1, и B может прочитать её до или после
+того, как A прочитает <code dir="auto">u-103</code>, смотря кто из обработчиков быстрее.</p>
+<p>Для наших итогов это не важно. Каждый итог зависит от записей одного аккаунта,
+а они все в одной партиции и в одном порядке. Важно это для результата,
+который объединяет аккаунты, например для числа токенов, израсходованных всем
+сервисом за минуту. Такой результат читает все партиции, а они продвигаются с
+разной скоростью, совсем как
+<a href="/ru/course/time/how-far-has-the-stream-progressed/" data-course-link="">отдельные входы водяного знака</a>
+(watermark).</p>
+<p>Порядок внутри партиции — это порядок дописывания, и он не всегда совпадает с
+порядком событий. Копия <code dir="auto">u-102</code> стоит после <code dir="auto">u-105</code> потому, что шлюз отправил
+её повторно, а не потому, что запрос случился позже. Запись, задержавшаяся по
+дороге в журнал, тоже окажется в нём поздно. Партиция хранит порядок, в котором
+записи пришли, а когда что произошло, по-прежнему говорит
+<a href="/ru/course/time/event-time-and-processing-time/" data-course-link="">время события</a> (event time).</p>
+<div class="sl-heading-wrapper level-h2"><h2 id="прогресс-для-каждой-партиции">Прогресс для каждой партиции</h2><a class="sl-anchor-link" href="#прогресс-для-каждой-партиции"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 1 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 0 0-1.42-1.42m8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 1 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 0 0 0 1.42 1 1 0 0 0 1.42 0l3.88-3.89a4.49 4.49 0 0 0 0-6.33M8.83 15.17a1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.92-4.92a1 1 0 1 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42"></path></svg></span><span class="sr-only" data-pagefind-ignore="">Заголовок раздела «Прогресс для каждой партиции»</span></a></div>
+<p><a href="/ru/course/reliability/what-must-survive-a-restart/" data-course-link="">Прогресс чтения</a> (reading
+progress) обработчика раньше был одной позицией в одном журнале. Теперь у
+каждой партиции своя нумерация, поэтому прогресс — это позиция в каждой
+партиции, которую читает обработчик. Позиция 4 в партиции 0 и позиция 4 в
+партиции 1 никак не связаны.</p>
+<p>Контрольная точка обработчика A теперь выглядит так: <code dir="auto">acme</code> — 1 400 токенов со
+списком учтённых ID, <code dir="auto">delta</code> — 300 токенов, следующая позиция в партиции 0 — 4.
+В ней состояние всех ключей партиции 0 и позиция в этой партиции, а о других
+партициях ничего нет. Обработчик, который читает две партиции, сохраняет две
+позиции. Правило <a href="/ru/course/reliability/recovering-a-consistent-computation/" data-course-link="">согласованной контрольной точки</a>
+(consistent checkpoint) по-прежнему действует для каждой: состояние включает ровно те записи, которые
+стоят до сохранённой позиции в каждой партиции.</p>
+<div class="sl-heading-wrapper level-h2"><h2 id="передача-партиции-другому-обработчику">Передача партиции другому обработчику</h2><a class="sl-anchor-link" href="#передача-партиции-другому-обработчику"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 1 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 0 0-1.42-1.42m8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 1 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 0 0 0 1.42 1 1 0 0 0 1.42 0l3.88-3.89a4.49 4.49 0 0 0 0-6.33M8.83 15.17a1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.92-4.92a1 1 0 1 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42"></path></svg></span><span class="sr-only" data-pagefind-ignore="">Заголовок раздела «Передача партиции другому обработчику»</span></a></div>
+<p>В 11:00 отказывает машина обработчика A. B может взять партицию 0, но одной
+партиции мало. У B нет состояния для <code dir="auto">acme</code> и <code dir="auto">delta</code>. Если он просто продолжит
+читать с того места, где остановился A, итог <code dir="auto">acme</code> начнётся с нуля.</p>
+<p>Поэтому B восстанавливает то, что сохранил A: состояние ключей партиции 0 и
+позицию в ней из последней контрольной точки A. Затем он воспроизводит
+(replay) записи с этой позиции. Это работает, только если контрольная
+точка A хранится там, где B может до неё добраться, и если в нашей модели
+состояние сохранено по партициям, чтобы B взял нужную часть без остального.
+Движки вроде Flink тоже переносят состояние вместе с ответственностью за
+ключи. Но Flink делит состояние по ключам на собственные группы ключей,
+которые не совпадают с партициями входного журнала, и восстанавливает
+состояние и позиции во входах вместе, из контрольной точки<sup><a href="https://nightlies.apache.org/flink/flink-docs-release-2.3/docs/concepts/stateful-stream-processing/#keyed-state" id="user-content-fnref-3" data-footnote-ref="" title="Apache Flink 2.3: Keyed State" target="_blank" rel="noopener noreferrer">3</a></sup>.</p>
+<p>Ещё B должен быть уверен, что A действительно остановился. Если A просто долго
+не отвечал и продолжает работать, партицию 0 учитывают оба обработчика и оба
+отправляют результаты. Упавший обработчик должен перестать работать с
+партицией прежде, чем её возьмёт другой.</p>
+<figure class="course-diagram">
+<svg viewBox="0 0 384 256" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="partition-state-transfer-title partition-state-transfer-desc">
+<title id="partition-state-transfer-title">Передача партиции другому обработчику</title>
+<desc id="partition-state-transfer-desc">После остановки A обработчик B восстанавливает итоги и учтённые ID вместе со следующей позицией 4 и продолжает читать партицию 0.</desc>
+  <style>
+    .cd-paper { fill: var(--sl-color-bg, #ffffff); }
+    .cd-name { fill: var(--sl-color-white, #18181b); font: 600 14px var(--sl-font, system-ui, sans-serif); }
+    .cd-sub { fill: var(--sl-color-gray-3, #52525b); font: 12px var(--sl-font, system-ui, sans-serif); }
+    .cd-code { fill: var(--sl-color-gray-3, #52525b); font: 12px var(--sl-font-mono, ui-monospace, monospace); }
+    .cd-label { fill: var(--sl-color-gray-3, #52525b); font: 11px var(--sl-font-mono, ui-monospace, monospace); letter-spacing: 0.06em; }
+    .cd-zone-label { fill: var(--sl-color-text-accent, #6366f1); font: 600 11px var(--sl-font-mono, ui-monospace, monospace); letter-spacing: 0.14em; }
+    .cd-arrow { stroke: var(--sl-color-gray-3, #52525b); stroke-width: 1.2; }
+    .cd-arrow-head { fill: var(--sl-color-gray-3, #52525b); }
+    .cd-zone { fill: var(--sl-color-accent-low, #eef0fe); stroke: var(--sl-color-accent, #6366f1); stroke-width: 1; }
+    .cd-node { fill: var(--sl-color-bg, #ffffff); stroke: var(--sl-color-gray-3, #52525b); stroke-width: 1; }
+    .cd-input { fill: color-mix(in srgb, var(--sl-color-gray-3, #52525b) 10%, var(--sl-color-bg, #ffffff)); stroke: var(--sl-color-gray-4, #a1a1aa); stroke-width: 1; }
+    .cd-store { fill: color-mix(in srgb, var(--sl-color-white, #18181b) 5%, var(--sl-color-bg, #ffffff)); stroke: var(--sl-color-gray-3, #52525b); stroke-width: 1; }
+    .cd-accent { fill: var(--sl-color-accent-low, #eef0fe); stroke: var(--sl-color-accent, #6366f1); stroke-width: 1; }
+    .cd-arrow-accent { stroke: var(--sl-color-accent, #6366f1); stroke-width: 1.2; }
+    .cd-arrow-accent-head { fill: var(--sl-color-accent, #6366f1); }
+    .cd-track { stroke: var(--sl-color-gray-4, #a1a1aa); stroke-width: 1; }
+    .cd-guide { stroke: var(--sl-color-gray-4, #a1a1aa); stroke-width: 1; stroke-dasharray: 2 4; }
+    .cd-dot { fill: var(--sl-color-gray-3, #52525b); }
+    .cd-accent-text { fill: var(--sl-color-text-accent, #6366f1); }
+    .cd-orange { fill: color-mix(in srgb, var(--course-orange, #c2410c) 12%, var(--sl-color-bg, #ffffff)); stroke: var(--course-orange, #c2410c); stroke-width: 1; }
+    .cd-orange-text { fill: var(--course-orange, #c2410c); }
+    .cd-teal { fill: color-mix(in srgb, var(--course-teal, #0f766e) 12%, var(--sl-color-bg, #ffffff)); stroke: var(--course-teal, #0f766e); stroke-width: 1; }
+    .cd-teal-text { fill: var(--course-teal, #0f766e); }
+  </style>
+<defs>
+<marker id="partition-state-transfer-arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon class="cd-arrow-head" points="0 0, 8 3, 0 6"></polygon></marker>
+</defs>
+<line class="cd-arrow" x1="192" y1="60" x2="192" y2="100" marker-end="url(#partition-state-transfer-arrow)"></line>
+<text class="cd-label" x="204" y="84">СОСТОЯНИЕ</text>
+<line class="cd-arrow" x1="192" y1="156" x2="192" y2="196" marker-end="url(#partition-state-transfer-arrow)"></line>
+<text class="cd-label" x="204" y="180">ВОССТАНОВЛЕНИЕ</text>
+<rect class="cd-node" x="48" y="4" width="288" height="56" rx="6"></rect>
+<text class="cd-name" x="192" y="28" text-anchor="middle">A остановлен</text>
+<text class="cd-sub" x="192" y="46" text-anchor="middle">партиции 0 нужен новый владелец</text>
+<rect class="cd-accent" x="48" y="100" width="288" height="56" rx="6"></rect>
+<text class="cd-name" x="192" y="124" text-anchor="middle">Сохранённая контрольная точка</text>
+<text class="cd-sub" x="192" y="142" text-anchor="middle">итоги + ID + следующая позиция 4</text>
+<rect class="cd-store" x="48" y="196" width="288" height="56" rx="6"></rect>
+<text class="cd-name" x="192" y="220" text-anchor="middle">Обработчик B</text>
+<text class="cd-sub" x="192" y="238" text-anchor="middle">восстанавливает, читает с 4</text>
+</svg>
+</figure>
+<div class="sl-heading-wrapper level-h2"><h2 id="чего-партиции-не-могут">Чего партиции не могут</h2><a class="sl-anchor-link" href="#чего-партиции-не-могут"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 1 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 0 0-1.42-1.42m8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 1 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 0 0 0 1.42 1 1 0 0 0 1.42 0l3.88-3.89a4.49 4.49 0 0 0 0-6.33M8.83 15.17a1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.92-4.92a1 1 0 1 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42"></path></svg></span><span class="sr-only" data-pagefind-ignore="">Заголовок раздела «Чего партиции не могут»</span></a></div>
+<p>Партиции делят работу между ключами и никогда внутри одного ключа. У этого три
+следствия.</p>
+<p>Количество партиций ограничивает количество обработчиков. Если партиций три,
+четвёртому обработчику читать нечего. Чтобы оставить запас на рост, журнал
+можно сразу разделить на больше партиций, чем обработчиков, и дать каждому
+обработчику по несколько.</p>
+<p>Один загруженный ключ остаётся в одной партиции. Допустим, <code dir="auto">acme</code> один
+присылает 2 500 записей в секунду. Все они идут в партицию 0, и A, который
+учитывает 2 000 в секунду, начинает отставать, а B и C наполовину простаивают.
+Добавить обработчиков не поможет: всю партицию читает один обработчик. Чтобы
+разделить работу <code dir="auto">acme</code>, понадобится другое вычисление, например частичные
+итоги, которые потом складываются, а с ним снова придётся решать проблемы
+очереди.</p>
+<p>Изменение числа партиций переносит ключи. Остаток от деления на четыре — не
+то же самое, что остаток от деления на три, поэтому с четвёртой партицией
+новые записи <code dir="auto">acme</code> могут уйти в партицию 3. Его старые записи и состояние
+останутся при партиции 0. Kafka, например, не переносит существующие записи
+при добавлении партиций, и записи с тем же ключом после этого могут попадать в
+другую партицию<sup><a href="https://kafka.apache.org/44/operations/basic-kafka-operations/" id="user-content-fnref-4" data-footnote-ref="" title="Apache Kafka 4.4: Basic Kafka Operations, Modifying topics" target="_blank" rel="noopener noreferrer">4</a></sup>. Такое изменение надо планировать вместе с состоянием,
+примерно как передачу партиции от одного обработчика другому.</p>
+<p>Для передачи партиции ещё нужен тот, кто примет решение. Когда отказал A,
+кто-то должен был это заметить, выбрать B и сказать ему, какую партицию взять
+и где сохранён прогресс A. При трёх обработчиках с этим справится человек. В
+3 часа ночи, при десятках обработчиков и партиций, делать это нужно
+автоматически, и у всех обработчиков должны быть согласованные сведения о том,
+кто какие партиции читает.</p>
+<div class="sl-heading-wrapper level-h2"><h2 id="что-запомнить">Что запомнить</h2><a class="sl-anchor-link" href="#что-запомнить"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 1 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 0 0-1.42-1.42m8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 1 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 0 0 0 1.42 1 1 0 0 0 1.42 0l3.88-3.89a4.49 4.49 0 0 0 0-6.33M8.83 15.17a1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.92-4.92a1 1 0 1 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42"></path></svg></span><span class="sr-only" data-pagefind-ignore="">Заголовок раздела «Что запомнить»</span></a></div>
+<ul>
+<li>Партиция — часть разделённого журнала со своим порядком и своими позициями.
+Производитель выбирает её по ключу записи, поэтому все записи одного ключа
+оказываются в одной партиции.</li>
+<li>Партиция хранит порядок дописывания. У разных партиций нет общего порядка, а
+порядок дописывания не равен порядку событий.</li>
+<li>Прогресс чтения — это позиция в каждой партиции, а контрольная точка хранит
+состояние ключей партиции вместе с этой позицией.</li>
+<li>В нашей модели партиция переходит к другому обработчику только вместе с
+состоянием её ключей и только после того, как прежний обработчик
+остановился. Один загруженный ключ
+партиции разделить не могут, а изменение их числа переносит ключи.</li>
+</ul>
+<div class="sl-heading-wrapper level-h2"><h2 id="источники">Источники</h2><a class="sl-anchor-link" href="#источники"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 1 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 0 0-1.42-1.42m8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 1 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 0 0 0 1.42 1 1 0 0 0 1.42 0l3.88-3.89a4.49 4.49 0 0 0 0-6.33M8.83 15.17a1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.92-4.92a1 1 0 1 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42"></path></svg></span><span class="sr-only" data-pagefind-ignore="">Заголовок раздела «Источники»</span></a></div><section data-footnotes="" class="footnotes" aria-label="Источники"><ol>
+<li id="user-content-fn-1">
+<p><a href="https://kafka.apache.org/44/configuration/producer-configs/" target="_blank" rel="noopener noreferrer">Apache Kafka 4.4: Producer Configs, partitioner.class</a>.</p>
+</li>
+<li id="user-content-fn-2">
+<p><a href="https://kafka.apache.org/44/getting-started/introduction/" target="_blank" rel="noopener noreferrer">Apache Kafka 4.4: Introduction, Main Concepts and Terminology</a>.</p>
+</li>
+<li id="user-content-fn-3">
+<p><a href="https://nightlies.apache.org/flink/flink-docs-release-2.3/docs/concepts/stateful-stream-processing/#keyed-state" target="_blank" rel="noopener noreferrer">Apache Flink 2.3: Keyed State</a>.</p>
+</li>
+<li id="user-content-fn-4">
+<p><a href="https://kafka.apache.org/44/operations/basic-kafka-operations/" target="_blank" rel="noopener noreferrer">Apache Kafka 4.4: Basic Kafka Operations, Modifying topics</a>.</p>
+</li>
+</ol></section>
+<div class="sl-heading-wrapper level-h2"><h2 id="что-почитать">Что почитать</h2><a class="sl-anchor-link" href="#что-почитать"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 1 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 0 0-1.42-1.42m8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 1 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 0 0 0 1.42 1 1 0 0 0 1.42 0l3.88-3.89a4.49 4.49 0 0 0 0-6.33M8.83 15.17a1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.92-4.92a1 1 0 1 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42"></path></svg></span><span class="sr-only" data-pagefind-ignore="">Заголовок раздела «Что почитать»</span></a></div>
+<ul>
+<li>Martin Kleppmann, Chris Riccomini, <em><a href="https://www.oreilly.com/library/view/designing-data-intensive-applications/9781098119058/">Designing Data-Intensive Applications</a></em>,
+2nd ed. (O’Reilly Media, 2026), глава 12 «Stream Processing». Показывает,
+почему журнал, разделённый на партиции, отдаёт каждому читателю целые
+партиции, а не отдельные сообщения, что это даёт порядку и почему число
+партиций ограничивает число читателей.</li>
+</ul>
+</div><div class="course-progress-row"><button type="button" class="course-progress-toggle" role="switch" aria-checked="false" data-course-progress-toggle hidden><span class="course-progress" data-state="seen" aria-hidden="true"></span>Отметить как прочитанное</button></div><footer class="sl-flex astro-ddtxxk7k"><div class="meta sl-flex astro-ddtxxk7k"></div><nav class="course-pagination" aria-label="Между статьями"><a href="/ru/course/distribution/a-queue-or-a-log/" rel="prev"><span class="pagination-direction">← Предыдущая</span><span class="pagination-title">Очередь или журнал?</span><span class="pagination-section">Распределённая обработка и журнал</span></a><a href="/ru/course/distribution/topics-partitions-and-offsets-in-kafka/" rel="next"><span class="pagination-direction">Следующая →</span><span class="pagination-title">Топики, партиции и смещения в Kafka</span><span class="pagination-section">Распределённая обработка и журнал</span></a></nav></footer><p class="course-license astro-7g3h5dfi">© 2026 <a href="https://alexengrig.github.io" class="astro-7g3h5dfi">Grig Alex</a> · <a href="https://creativecommons.org/licenses/by-sa/4.0/deed.ru" rel="license" class="astro-7g3h5dfi">CC BY-SA 4.0</a></p></div></div></main></div></div></div></div></body></html>

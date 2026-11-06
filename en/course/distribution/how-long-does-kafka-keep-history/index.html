@@ -1,0 +1,425 @@
+<!DOCTYPE html><html lang="en" dir="ltr" data-theme="dark" data-has-toc data-has-sidebar class="astro-g5ptsecz"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/><title>How long does Kafka keep history? | Stream Processing</title><link rel="canonical" href="https://stream-processing-systems.github.io/en/course/distribution/how-long-does-kafka-keep-history/"/><link rel="alternate" hreflang="en" href="https://stream-processing-systems.github.io/en/course/distribution/how-long-does-kafka-keep-history/"/><link rel="alternate" hreflang="ru" href="https://stream-processing-systems.github.io/ru/course/distribution/how-long-does-kafka-keep-history/"/><link rel="alternate" hreflang="x-default" href="https://stream-processing-systems.github.io/en/course/distribution/how-long-does-kafka-keep-history/"/><link rel="sitemap" href="/sitemap-index.xml"/><link rel="apple-touch-icon" href="/apple-touch-icon.png"/><link rel="icon" href="/favicon.ico" sizes="32x32"/><link rel="manifest" href="/manifest.webmanifest"/><script src="/article-widgets.js" defer></script><script src="/course-progress.js" defer></script><script async src="https://www.googletagmanager.com/gtag/js?id=G-C0KBX4XM6J"></script><script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','G-C0KBX4XM6J');</script><script src="/language-preference.js" defer></script><link rel="shortcut icon" href="/favicon-32.png" type="image/png"/><meta name="generator" content="Astro v7.3.5"/><meta name="generator" content="Starlight v0.42.5"/><meta property="og:title" content="How long does Kafka keep history?"/><meta property="og:type" content="article"/><meta property="og:url" content="https://stream-processing-systems.github.io/en/course/distribution/how-long-does-kafka-keep-history/"/><meta property="og:locale" content="en"/><meta property="og:description" content="How retention decides how far back a log can be read, why copies on several brokers protect against a different failure, and when keeping only the latest value of each key is enough."/><meta property="og:site_name" content="Stream Processing"/><meta name="twitter:card" content="summary_large_image"/><meta name="description" content="How retention decides how far back a log can be read, why copies on several brokers protect against a different failure, and when keeping only the latest value of each key is enough."/><meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)"/><meta name="theme-color" content="#2b2b30" media="(prefers-color-scheme: dark)"/><meta property="og:image" content="https://stream-processing-systems.github.io/og-image-en.png"/><meta property="og:image:width" content="1200"/><meta property="og:image:height" content="630"/><meta name="twitter:image" content="https://stream-processing-systems.github.io/og-image-en.png"/><script>
+	window.StarlightThemeProvider = (() => {
+		const storedTheme =
+			typeof localStorage !== 'undefined' && localStorage.getItem('starlight-theme');
+		const theme =
+			storedTheme ||
+			(window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark');
+		document.documentElement.dataset.theme = theme === 'light' ? 'light' : 'dark';
+		return {
+			updatePickers(theme = storedTheme || 'auto') {
+				document.querySelectorAll('starlight-theme-select').forEach((picker) => {
+					const select = picker.querySelector('select');
+					if (select) select.value = theme;
+					/** @type {HTMLTemplateElement | null} */
+					const tmpl = document.querySelector(`#theme-icons`);
+					const newIcon = tmpl && tmpl.content.querySelector('.' + theme);
+					if (newIcon) {
+						const oldIcon = picker.querySelector('svg.label-icon');
+						if (oldIcon) {
+							oldIcon.replaceChildren(...newIcon.cloneNode(true).childNodes);
+						}
+					}
+				});
+			},
+		};
+	})();
+</script><template id="theme-icons"><svg aria-hidden="true" class="light astro-hkc32dio" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M5 12a1 1 0 0 0-1-1H3a1 1 0 0 0 0 2h1a1 1 0 0 0 1-1Zm.64 5-.71.71a1 1 0 0 0 0 1.41 1 1 0 0 0 1.41 0l.71-.71A1 1 0 0 0 5.64 17ZM12 5a1 1 0 0 0 1-1V3a1 1 0 0 0-2 0v1a1 1 0 0 0 1 1Zm5.66 2.34a1 1 0 0 0 .7-.29l.71-.71a1 1 0 1 0-1.41-1.41l-.66.71a1 1 0 0 0 0 1.41 1 1 0 0 0 .66.29Zm-12-.29a1 1 0 0 0 1.41 0 1 1 0 0 0 0-1.41l-.71-.71a1.004 1.004 0 1 0-1.43 1.41l.73.71ZM21 11h-1a1 1 0 0 0 0 2h1a1 1 0 0 0 0-2Zm-2.64 6A1 1 0 0 0 17 18.36l.71.71a1 1 0 0 0 1.41 0 1 1 0 0 0 0-1.41l-.76-.66ZM12 6.5a5.5 5.5 0 1 0 5.5 5.5A5.51 5.51 0 0 0 12 6.5Zm0 9a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7Zm0 3.5a1 1 0 0 0-1 1v1a1 1 0 0 0 2 0v-1a1 1 0 0 0-1-1Z"/></svg><svg aria-hidden="true" class="dark astro-hkc32dio" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M21.64 13a1 1 0 0 0-1.05-.14 8.049 8.049 0 0 1-3.37.73 8.15 8.15 0 0 1-8.14-8.1 8.59 8.59 0 0 1 .25-2A1 1 0 0 0 8 2.36a10.14 10.14 0 1 0 14 11.69 1 1 0 0 0-.36-1.05Zm-9.5 6.69A8.14 8.14 0 0 1 7.08 5.22v.27a10.15 10.15 0 0 0 10.14 10.14 9.784 9.784 0 0 0 2.1-.22 8.11 8.11 0 0 1-7.18 4.32v-.04Z"/></svg><svg aria-hidden="true" class="auto astro-hkc32dio" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M21 14h-1V7a3 3 0 0 0-3-3H7a3 3 0 0 0-3 3v7H3a1 1 0 0 0-1 1v2a3 3 0 0 0 3 3h14a3 3 0 0 0 3-3v-2a1 1 0 0 0-1-1ZM6 7a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v7H6V7Zm14 10a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-1h16v1Z"/></svg></template><link rel="stylesheet" href="/_astro/print.ehPL0gv-.css" media="print"><link rel="stylesheet" href="/_astro/index.DGaUXbc6.css"><script type="module" src="/_astro/page.Dwipeu-R.js"></script></head><body class="astro-g5ptsecz"><a class="sl-skip-link astro-qb7clj6f" href="#_top">Skip to content</a><div class="page sl-flex astro-jvulkizc"><header class="header astro-jvulkizc"><div class="header astro-by6fddyj"><div class="title-wrapper sl-flex astro-by6fddyj"><a href="/en" class="site-title sl-flex astro-6rvad3va"><img class="astro-6rvad3va" alt src="/_astro/logo.DKQKHWKq.png" width="192" height="192"><span class="astro-6rvad3va" translate="no">Stream Processing</span></a></div><div class="sl-flex print:hidden astro-by6fddyj"><site-search class="astro-223fx62r astro-b5kgnn7o" data-translations="{&quot;placeholder&quot;:&quot;Search&quot;,&quot;clear_search&quot;:&quot;Clear&quot;,&quot;load_more&quot;:&quot;Load more&quot;,&quot;search_label&quot;:&quot;Search this site&quot;,&quot;filters_label&quot;:&quot;Filters&quot;,&quot;zero_results&quot;:&quot;No results for [SEARCH_TERM]&quot;,&quot;many_results&quot;:&quot;[COUNT] results for [SEARCH_TERM]&quot;,&quot;one_result&quot;:&quot;[COUNT] result for [SEARCH_TERM]&quot;,&quot;alt_search&quot;:&quot;No results for [SEARCH_TERM]. Showing results for [DIFFERENT_TERM]&quot;,&quot;search_suggestion&quot;:&quot;No results for [SEARCH_TERM]. Try another search:&quot;,&quot;searching&quot;:&quot;Searching for [SEARCH_TERM]…&quot;}"><button data-open-modal disabled aria-label="Search" aria-keyshortcuts="Control+K" class="astro-b5kgnn7o"><svg aria-hidden="true" class="astro-b5kgnn7o astro-hkc32dio" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M21.71 20.29 18 16.61A9 9 0 1 0 16.61 18l3.68 3.68a.999.999 0 0 0 1.42 0 1 1 0 0 0 0-1.39ZM11 18a7 7 0 1 1 0-14 7 7 0 0 1 0 14Z"/></svg><span class="sl-hidden md:sl-block astro-b5kgnn7o" aria-hidden="true">Search</span><kbd class="sl-hidden md:sl-flex astro-b5kgnn7o" style="display: none;"><kbd class="astro-b5kgnn7o">Ctrl</kbd><kbd class="astro-b5kgnn7o">K</kbd></kbd></button><dialog style="padding:0" aria-label="Search" class="astro-b5kgnn7o"><div class="dialog-frame sl-flex astro-b5kgnn7o"><button data-close-modal class="sl-flex md:sl-hidden astro-b5kgnn7o">Cancel</button><div class="search-container astro-b5kgnn7o"><div id="starlight__search" class="astro-b5kgnn7o"></div></div></div></dialog></site-search><script>
+	(() => {
+		const openBtn = document.querySelector('button[data-open-modal]');
+		const shortcut = openBtn?.querySelector('kbd');
+		if (!openBtn || !(shortcut instanceof HTMLElement)) return;
+		const platformKey = shortcut.querySelector('kbd');
+		if (platformKey && /(Mac|iPhone|iPod|iPad)/i.test(navigator.platform)) {
+			platformKey.textContent = '⌘';
+			openBtn.setAttribute('aria-keyshortcuts', 'Meta+K');
+		}
+		shortcut.style.display = '';
+	})();
+</script><script type="module" src="/_astro/Search.astro_astro_type_script_index_0_lang.Bumivpjo.js"></script><div class="course-search-start astro-223fx62r" hidden><p class="course-search-start-heading astro-223fx62r">Where to start</p><ul class="astro-223fx62r"><li class="astro-223fx62r"><a href="/en/course/introduction/why-stream-processing/" class="astro-223fx62r"><span class="course-search-start-section astro-223fx62r">Introduction</span><span class="course-search-start-title astro-223fx62r">Why stream processing?</span></a></li><li class="astro-223fx62r"><a href="/en/course/fundamentals/what-does-an-event-tell-us/" class="astro-223fx62r"><span class="course-search-start-section astro-223fx62r">Fundamentals</span><span class="course-search-start-title astro-223fx62r">What does an event tell us?</span></a></li><li class="astro-223fx62r"><a href="/en/course/time/event-time-and-processing-time/" class="astro-223fx62r"><span class="course-search-start-section astro-223fx62r">Time and windows</span><span class="course-search-start-title astro-223fx62r">Event time and processing time</span></a></li><li class="astro-223fx62r"><a href="/en/course/reliability/when-an-event-arrives-twice-or-never/" class="astro-223fx62r"><span class="course-search-start-section astro-223fx62r">Duplicates, loss, and recovery</span><span class="course-search-start-title astro-223fx62r">When an event arrives twice or never</span></a></li><li class="astro-223fx62r"><a href="/en/course/distribution/a-queue-or-a-log/" class="astro-223fx62r"><span class="course-search-start-section astro-223fx62r">Distributed processing and the log</span><span class="course-search-start-title astro-223fx62r">A queue or a log?</span></a></li></ul></div><script type="module">var e=document.querySelector(`.course-search-start`),t=document.querySelector(`site-search .search-container`);e&&t&&(t.append(e),e.hidden=!1);</script></div><div class="sl-hidden md:sl-flex print:hidden right-group astro-by6fddyj"><div class="sl-flex social-icons astro-by6fddyj"></div><course-theme-toggle class="astro-e52pfzt5"><button type="button" class="course-theme-toggle astro-e52pfzt5" aria-label="Toggle theme" title="Toggle theme"><svg aria-hidden="true" class="course-theme-icon course-theme-moon astro-e52pfzt5 astro-hkc32dio" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M21.64 13a1 1 0 0 0-1.05-.14 8.049 8.049 0 0 1-3.37.73 8.15 8.15 0 0 1-8.14-8.1 8.59 8.59 0 0 1 .25-2A1 1 0 0 0 8 2.36a10.14 10.14 0 1 0 14 11.69 1 1 0 0 0-.36-1.05Zm-9.5 6.69A8.14 8.14 0 0 1 7.08 5.22v.27a10.15 10.15 0 0 0 10.14 10.14 9.784 9.784 0 0 0 2.1-.22 8.11 8.11 0 0 1-7.18 4.32v-.04Z"/></svg><svg aria-hidden="true" class="course-theme-icon course-theme-sun astro-e52pfzt5 astro-hkc32dio" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M5 12a1 1 0 0 0-1-1H3a1 1 0 0 0 0 2h1a1 1 0 0 0 1-1Zm.64 5-.71.71a1 1 0 0 0 0 1.41 1 1 0 0 0 1.41 0l.71-.71A1 1 0 0 0 5.64 17ZM12 5a1 1 0 0 0 1-1V3a1 1 0 0 0-2 0v1a1 1 0 0 0 1 1Zm5.66 2.34a1 1 0 0 0 .7-.29l.71-.71a1 1 0 1 0-1.41-1.41l-.66.71a1 1 0 0 0 0 1.41 1 1 0 0 0 .66.29Zm-12-.29a1 1 0 0 0 1.41 0 1 1 0 0 0 0-1.41l-.71-.71a1.004 1.004 0 1 0-1.43 1.41l.73.71ZM21 11h-1a1 1 0 0 0 0 2h1a1 1 0 0 0 0-2Zm-2.64 6A1 1 0 0 0 17 18.36l.71.71a1 1 0 0 0 1.41 0 1 1 0 0 0 0-1.41l-.76-.66ZM12 6.5a5.5 5.5 0 1 0 5.5 5.5A5.51 5.51 0 0 0 12 6.5Zm0 9a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7Zm0 3.5a1 1 0 0 0-1 1v1a1 1 0 0 0 2 0v-1a1 1 0 0 0-1-1Z"/></svg></button></course-theme-toggle><script type="module">var e=`starlight-theme`,t=()=>matchMedia(`(prefers-color-scheme: light)`).matches?`light`:`dark`,n=class extends HTMLElement{constructor(){super(),this.querySelector(`button`)?.addEventListener(`click`,()=>{let t=document.documentElement.dataset.theme===`light`?`dark`:`light`;document.documentElement.dataset.theme=t;try{localStorage.setItem(e,t)}catch{}})}};customElements.define(`course-theme-toggle`,n),matchMedia(`(prefers-color-scheme: light)`).addEventListener(`change`,()=>{let n=null;try{n=localStorage.getItem(e)}catch{}n!==`light`&&n!==`dark`&&(document.documentElement.dataset.theme=t())});</script><course-language-switch class="course-language-switch astro-e5tdbfla"><button type="button" class="course-language-button astro-e5tdbfla" aria-haspopup="true" aria-expanded="false" aria-label="Choose language" title="Choose language">EN</button><ul class="course-language-menu astro-e5tdbfla" hidden><li class="astro-e5tdbfla"><a href="/ru/course/distribution/how-long-does-kafka-keep-history/" hreflang="ru" lang="ru" class="astro-e5tdbfla">Русский</a></li></ul></course-language-switch><script type="module">var e=class extends HTMLElement{constructor(){super();let e=this.querySelector(`button`),t=this.querySelector(`ul`);if(!e||!t)return;let n=n=>{t.hidden=!n,e.setAttribute(`aria-expanded`,String(n))};e.addEventListener(`click`,()=>n(t.hidden)),document.addEventListener(`click`,e=>{this.contains(e.target)||n(!1)}),this.addEventListener(`keydown`,t=>{t.key===`Escape`&&(n(!1),e.focus())})}};customElements.define(`course-language-switch`,e);</script></div></div></header><nav class="sidebar print:hidden astro-jvulkizc" aria-label="Main"><button popovertarget="starlight__sidebar" class="sl-menu-button sl-flex lg:sl-hidden print:hidden astro-typaf3vk"><svg aria-hidden="true" class="open-menu astro-typaf3vk astro-hkc32dio" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M3 8h18a1 1 0 1 0 0-2H3a1 1 0 0 0 0 2Zm18 8H3a1 1 0 0 0 0 2h18a1 1 0 0 0 0-2Zm0-5H3a1 1 0 0 0 0 2h18a1 1 0 0 0 0-2Z"/></svg><svg aria-hidden="true" class="close-menu astro-typaf3vk astro-hkc32dio" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="m13.41 12 6.3-6.29a1.004 1.004 0 1 0-1.42-1.42L12 10.59l-6.29-6.3a1.004 1.004 0 0 0-1.42 1.42l6.3 6.29-6.3 6.29a1 1 0 0 0 0 1.42.998.998 0 0 0 1.42 0l6.29-6.3 6.29 6.3a.999.999 0 0 0 1.42 0 1 1 0 0 0 0-1.42L13.41 12Z"/></svg><span class="sr-only astro-typaf3vk">Menu</span></button><script type="module">var e=class extends HTMLElement{constructor(){super();let e=matchMedia(`(min-width: 72em)`),t=()=>{this.popover=e.matches?null:`auto`};t(),e.addEventListener(`change`,()=>t()),this.addEventListener(`toggle`,({newState:e})=>this.trapFocus(e===`open`))}trapFocus(e){document.querySelectorAll(`.main-frame, .sl-skip-link`).forEach(t=>{t.toggleAttribute(`inert`,e)})}};customElements.define(`sl-sidebar-pane`,e);</script><sl-sidebar-pane popover id="starlight__sidebar" class="sidebar-pane astro-jvulkizc"><div class="sidebar-content sl-flex astro-jvulkizc"><div class="course-sidebar-brand astro-6vmd22lb"><a href="/en" class="site-title sl-flex astro-6rvad3va"><img class="astro-6rvad3va" alt src="/_astro/logo.DKQKHWKq.png" width="192" height="192"><span class="astro-6rvad3va" translate="no">Stream Processing</span></a></div><sl-sidebar-state-persist data-hash="0j4c1tq" class="astro-ipdry5cl"><script aria-hidden="true">
+		(() => {
+			try {
+				if (!matchMedia('(min-width: 50em)').matches) return;
+				/** @type {HTMLElement | null} */
+				const target = document.querySelector('sl-sidebar-state-persist');
+				const state = JSON.parse(sessionStorage.getItem('sl-sidebar-state') || '0');
+				if (!target || !state || target.dataset.hash !== state.hash) return;
+				window._starlightScrollRestore = state.scroll;
+				customElements.define(
+					'sl-sidebar-restore',
+					class SidebarRestore extends HTMLElement {
+						connectedCallback() {
+							try {
+								const idx = parseInt(this.dataset.index || '');
+								const details = this.closest('details');
+								if (details && typeof state.open[idx] === 'boolean') details.open = state.open[idx];
+							} catch {}
+						}
+					}
+				);
+			} catch {}
+		})();
+	</script><ul class="top-level astro-rmhv4bp6"><li class="astro-rmhv4bp6"><details open class="astro-rmhv4bp6"><summary class="astro-rmhv4bp6"><span class="group-label astro-rmhv4bp6"><span class="large astro-rmhv4bp6">Introduction</span></span><svg aria-hidden="true" class="caret astro-rmhv4bp6 astro-hkc32dio" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.25rem;"><path d="m14.83 11.29-4.24-4.24a1 1 0 1 0-1.42 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41 1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.24-4.24a1.002 1.002 0 0 0 0-1.42Z"/></svg></summary><sl-sidebar-restore data-index="0"></sl-sidebar-restore><ul class="astro-rmhv4bp6"><li class="astro-rmhv4bp6"><a href="/en/course/introduction/why-stream-processing/" class="astro-rmhv4bp6"><span class="astro-rmhv4bp6">Why stream processing?</span></a></li></ul></details></li><li class="astro-rmhv4bp6"><details open class="astro-rmhv4bp6"><summary class="astro-rmhv4bp6"><span class="group-label astro-rmhv4bp6"><span class="large astro-rmhv4bp6">Fundamentals</span></span><svg aria-hidden="true" class="caret astro-rmhv4bp6 astro-hkc32dio" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.25rem;"><path d="m14.83 11.29-4.24-4.24a1 1 0 1 0-1.42 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41 1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.24-4.24a1.002 1.002 0 0 0 0-1.42Z"/></svg></summary><sl-sidebar-restore data-index="1"></sl-sidebar-restore><ul class="astro-rmhv4bp6"><li class="astro-rmhv4bp6"><a href="/en/course/fundamentals/what-does-an-event-tell-us/" class="astro-rmhv4bp6"><span class="astro-rmhv4bp6">What does an event tell us?</span></a></li><li class="astro-rmhv4bp6"><a href="/en/course/fundamentals/from-events-to-results/" class="astro-rmhv4bp6"><span class="astro-rmhv4bp6">From events to results</span></a></li><li class="astro-rmhv4bp6"><a href="/en/course/fundamentals/when-one-event-is-not-enough/" class="astro-rmhv4bp6"><span class="astro-rmhv4bp6">When one event is not enough</span></a></li><li class="astro-rmhv4bp6"><a href="/en/course/fundamentals/grouping-events-by-key/" class="astro-rmhv4bp6"><span class="astro-rmhv4bp6">Grouping events by key</span></a></li></ul></details></li><li class="astro-rmhv4bp6"><details open class="astro-rmhv4bp6"><summary class="astro-rmhv4bp6"><span class="group-label astro-rmhv4bp6"><span class="large astro-rmhv4bp6">Time and windows</span></span><svg aria-hidden="true" class="caret astro-rmhv4bp6 astro-hkc32dio" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.25rem;"><path d="m14.83 11.29-4.24-4.24a1 1 0 1 0-1.42 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41 1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.24-4.24a1.002 1.002 0 0 0 0-1.42Z"/></svg></summary><sl-sidebar-restore data-index="2"></sl-sidebar-restore><ul class="astro-rmhv4bp6"><li class="astro-rmhv4bp6"><a href="/en/course/time/event-time-and-processing-time/" class="astro-rmhv4bp6"><span class="astro-rmhv4bp6">Event time and processing time</span></a></li><li class="astro-rmhv4bp6"><a href="/en/course/time/putting-events-into-time-windows/" class="astro-rmhv4bp6"><span class="astro-rmhv4bp6">Putting events into time windows</span></a></li><li class="astro-rmhv4bp6"><a href="/en/course/time/sliding-and-session-windows/" class="astro-rmhv4bp6"><span class="astro-rmhv4bp6">Sliding and session windows</span></a></li><li class="astro-rmhv4bp6"><a href="/en/course/time/how-far-has-the-stream-progressed/" class="astro-rmhv4bp6"><span class="astro-rmhv4bp6">How far has the stream progressed?</span></a></li><li class="astro-rmhv4bp6"><a href="/en/course/time/when-is-a-window-result-ready/" class="astro-rmhv4bp6"><span class="astro-rmhv4bp6">When is a window result ready?</span></a></li></ul></details></li><li class="astro-rmhv4bp6"><details open class="astro-rmhv4bp6"><summary class="astro-rmhv4bp6"><span class="group-label astro-rmhv4bp6"><span class="large astro-rmhv4bp6">Duplicates, loss, and recovery</span></span><svg aria-hidden="true" class="caret astro-rmhv4bp6 astro-hkc32dio" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.25rem;"><path d="m14.83 11.29-4.24-4.24a1 1 0 1 0-1.42 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41 1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.24-4.24a1.002 1.002 0 0 0 0-1.42Z"/></svg></summary><sl-sidebar-restore data-index="3"></sl-sidebar-restore><ul class="astro-rmhv4bp6"><li class="astro-rmhv4bp6"><a href="/en/course/reliability/when-an-event-arrives-twice-or-never/" class="astro-rmhv4bp6"><span class="astro-rmhv4bp6">When an event arrives twice or never</span></a></li><li class="astro-rmhv4bp6"><a href="/en/course/reliability/what-must-survive-a-restart/" class="astro-rmhv4bp6"><span class="astro-rmhv4bp6">What must survive a restart?</span></a></li><li class="astro-rmhv4bp6"><a href="/en/course/reliability/recovering-a-consistent-computation/" class="astro-rmhv4bp6"><span class="astro-rmhv4bp6">Recovering a consistent computation</span></a></li><li class="astro-rmhv4bp6"><a href="/en/course/reliability/one-result-one-external-effect/" class="astro-rmhv4bp6"><span class="astro-rmhv4bp6">One result, one external effect?</span></a></li></ul></details></li><li class="astro-rmhv4bp6"><details open class="astro-rmhv4bp6"><summary class="astro-rmhv4bp6"><span class="group-label astro-rmhv4bp6"><span class="large astro-rmhv4bp6">Distributed processing and the log</span></span><svg aria-hidden="true" class="caret astro-rmhv4bp6 astro-hkc32dio" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.25rem;"><path d="m14.83 11.29-4.24-4.24a1 1 0 1 0-1.42 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41 1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.24-4.24a1.002 1.002 0 0 0 0-1.42Z"/></svg></summary><sl-sidebar-restore data-index="4"></sl-sidebar-restore><ul class="astro-rmhv4bp6"><li class="astro-rmhv4bp6"><a href="/en/course/distribution/a-queue-or-a-log/" class="astro-rmhv4bp6"><span class="astro-rmhv4bp6">A queue or a log?</span></a></li><li class="astro-rmhv4bp6"><a href="/en/course/distribution/splitting-a-log-into-partitions/" class="astro-rmhv4bp6"><span class="astro-rmhv4bp6">Splitting a log into partitions</span></a></li><li class="astro-rmhv4bp6"><a href="/en/course/distribution/topics-partitions-and-offsets-in-kafka/" class="astro-rmhv4bp6"><span class="astro-rmhv4bp6">Topics, partitions, and offsets in Kafka</span></a></li><li class="astro-rmhv4bp6"><a href="/en/course/distribution/consumer-groups-and-replay-in-kafka/" class="astro-rmhv4bp6"><span class="astro-rmhv4bp6">Consumer groups and replay in Kafka</span></a></li><li class="astro-rmhv4bp6"><a href="/en/course/distribution/how-long-does-kafka-keep-history/" aria-current="page" class="astro-rmhv4bp6"><span class="astro-rmhv4bp6">How long does Kafka keep history?</span></a></li><li class="astro-rmhv4bp6"><a href="/en/course/distribution/capturing-changes-from-a-database/" class="astro-rmhv4bp6"><span class="astro-rmhv4bp6">Capturing changes from a database</span></a></li></ul></details></li></ul><script aria-hidden="true">
+		(() => {
+			const scroller = document.getElementById('starlight__sidebar');
+			if (!window._starlightScrollRestore || !scroller) return;
+			scroller.scrollTop = window._starlightScrollRestore;
+			delete window._starlightScrollRestore;
+		})();
+	</script></sl-sidebar-state-persist><div class="md:sl-hidden"><div class="mobile-preferences sl-flex astro-p4azlveh"><div class="social-icons astro-p4azlveh"></div><course-theme-toggle class="astro-e52pfzt5"><button type="button" class="course-theme-toggle astro-e52pfzt5" aria-label="Toggle theme" title="Toggle theme"><svg aria-hidden="true" class="course-theme-icon course-theme-moon astro-e52pfzt5 astro-hkc32dio" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M21.64 13a1 1 0 0 0-1.05-.14 8.049 8.049 0 0 1-3.37.73 8.15 8.15 0 0 1-8.14-8.1 8.59 8.59 0 0 1 .25-2A1 1 0 0 0 8 2.36a10.14 10.14 0 1 0 14 11.69 1 1 0 0 0-.36-1.05Zm-9.5 6.69A8.14 8.14 0 0 1 7.08 5.22v.27a10.15 10.15 0 0 0 10.14 10.14 9.784 9.784 0 0 0 2.1-.22 8.11 8.11 0 0 1-7.18 4.32v-.04Z"/></svg><svg aria-hidden="true" class="course-theme-icon course-theme-sun astro-e52pfzt5 astro-hkc32dio" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M5 12a1 1 0 0 0-1-1H3a1 1 0 0 0 0 2h1a1 1 0 0 0 1-1Zm.64 5-.71.71a1 1 0 0 0 0 1.41 1 1 0 0 0 1.41 0l.71-.71A1 1 0 0 0 5.64 17ZM12 5a1 1 0 0 0 1-1V3a1 1 0 0 0-2 0v1a1 1 0 0 0 1 1Zm5.66 2.34a1 1 0 0 0 .7-.29l.71-.71a1 1 0 1 0-1.41-1.41l-.66.71a1 1 0 0 0 0 1.41 1 1 0 0 0 .66.29Zm-12-.29a1 1 0 0 0 1.41 0 1 1 0 0 0 0-1.41l-.71-.71a1.004 1.004 0 1 0-1.43 1.41l.73.71ZM21 11h-1a1 1 0 0 0 0 2h1a1 1 0 0 0 0-2Zm-2.64 6A1 1 0 0 0 17 18.36l.71.71a1 1 0 0 0 1.41 0 1 1 0 0 0 0-1.41l-.76-.66ZM12 6.5a5.5 5.5 0 1 0 5.5 5.5A5.51 5.51 0 0 0 12 6.5Zm0 9a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7Zm0 3.5a1 1 0 0 0-1 1v1a1 1 0 0 0 2 0v-1a1 1 0 0 0-1-1Z"/></svg></button></course-theme-toggle><course-language-switch class="course-language-switch astro-e5tdbfla"><button type="button" class="course-language-button astro-e5tdbfla" aria-haspopup="true" aria-expanded="false" aria-label="Choose language" title="Choose language">EN</button><ul class="course-language-menu astro-e5tdbfla" hidden><li class="astro-e5tdbfla"><a href="/ru/course/distribution/how-long-does-kafka-keep-history/" hreflang="ru" lang="ru" class="astro-e5tdbfla">Русский</a></li></ul></course-language-switch></div></div></div></sl-sidebar-pane></nav><div class="main-frame astro-jvulkizc"><script type="module">var e=document.getElementById(`starlight__sidebar`),t=e?.querySelector(`sl-sidebar-state-persist`),n=`sl-sidebar-state`,r=()=>{let r=[],i=t?.dataset.hash||``;try{let e=sessionStorage.getItem(n),t=JSON.parse(e||`{}`);Array.isArray(t.open)&&t.hash===i&&(r=t.open)}catch{}return{hash:i,open:r,scroll:e?.scrollTop||0}},i=e=>{try{sessionStorage.setItem(n,JSON.stringify(e))}catch{}},a=()=>i(r()),o=(e,t)=>{let n=r();n.open[t]=e,i(n)};t?.addEventListener(`click`,e=>{if(!(e.target instanceof Element))return;let t=e.target.closest(`summary`)?.closest(`details`);if(!t)return;let n=t.querySelector(`sl-sidebar-restore`),r=parseInt(n?.dataset.index||``);isNaN(r)||o(!t.open,r)}),addEventListener(`visibilitychange`,()=>{document.visibilityState===`hidden`&&a()});</script><div class="md:sl-flex astro-z2restcr"><aside class="right-sidebar-container print:hidden astro-z2restcr"><div class="right-sidebar astro-z2restcr"><div class="md:sl-hidden astro-6c243z32"><mobile-starlight-toc data-min-h="2" data-max-h="3" class="astro-66cqc7ze"><nav aria-labelledby="starlight__on-this-page--mobile" class="astro-66cqc7ze"><details id="starlight__mobile-toc" class="astro-66cqc7ze"><summary id="starlight__on-this-page--mobile" class="sl-flex astro-66cqc7ze"><span class="toggle sl-flex astro-66cqc7ze">On this page<svg aria-hidden="true" class="caret astro-66cqc7ze astro-hkc32dio" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1rem;"><path d="m14.83 11.29-4.24-4.24a1 1 0 1 0-1.42 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41 1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.24-4.24a1.002 1.002 0 0 0 0-1.42Z"/></svg></span><span class="display-current astro-66cqc7ze"></span></summary><div class="dropdown astro-66cqc7ze"><ul class="isMobile astro-jugkfwgx" style="--depth: 0;"><li style="--depth: 0;" class="astro-jugkfwgx"><a href="#_top" style="--depth: 0;" class="astro-jugkfwgx"><span style="--depth: 0;" class="astro-jugkfwgx">Overview</span></a></li><li style="--depth: 0;" class="astro-jugkfwgx"><a href="#retention-how-long-records-stay" style="--depth: 0;" class="astro-jugkfwgx"><span style="--depth: 0;" class="astro-jugkfwgx">Retention: how long records stay</span></a></li><li style="--depth: 0;" class="astro-jugkfwgx"><a href="#when-a-reader-falls-behind-retention" style="--depth: 0;" class="astro-jugkfwgx"><span style="--depth: 0;" class="astro-jugkfwgx">When a reader falls behind retention</span></a></li><li style="--depth: 0;" class="astro-jugkfwgx"><a href="#copies-on-other-brokers" style="--depth: 0;" class="astro-jugkfwgx"><span style="--depth: 0;" class="astro-jugkfwgx">Copies on other brokers</span></a></li><li style="--depth: 0;" class="astro-jugkfwgx"><a href="#keeping-only-the-latest-value" style="--depth: 0;" class="astro-jugkfwgx"><span style="--depth: 0;" class="astro-jugkfwgx">Keeping only the latest value</span></a></li><li style="--depth: 0;" class="astro-jugkfwgx"><a href="#what-to-remember" style="--depth: 0;" class="astro-jugkfwgx"><span style="--depth: 0;" class="astro-jugkfwgx">What to remember</span></a></li><li style="--depth: 0;" class="astro-jugkfwgx"><a href="#references" style="--depth: 0;" class="astro-jugkfwgx"><span style="--depth: 0;" class="astro-jugkfwgx">References</span></a></li><li style="--depth: 0;" class="astro-jugkfwgx"><a href="#further-reading" style="--depth: 0;" class="astro-jugkfwgx"><span style="--depth: 0;" class="astro-jugkfwgx">Further reading</span></a></li></ul></div></details></nav></mobile-starlight-toc><script type="module" src="/_astro/MobileTableOfContents.astro_astro_type_script_index_0_lang.C3fM4Kra.js"></script></div><div class="right-sidebar-panel sl-hidden md:sl-block astro-6c243z32"><div class="sl-container astro-6c243z32"><starlight-toc data-min-h="2" data-max-h="3"><nav aria-labelledby="starlight__on-this-page"><h2 id="starlight__on-this-page">On this page</h2><ul class="astro-jugkfwgx" style="--depth: 0;"><li style="--depth: 0;" class="astro-jugkfwgx"><a href="#_top" style="--depth: 0;" class="astro-jugkfwgx"><span style="--depth: 0;" class="astro-jugkfwgx">Overview</span></a></li><li style="--depth: 0;" class="astro-jugkfwgx"><a href="#retention-how-long-records-stay" style="--depth: 0;" class="astro-jugkfwgx"><span style="--depth: 0;" class="astro-jugkfwgx">Retention: how long records stay</span></a></li><li style="--depth: 0;" class="astro-jugkfwgx"><a href="#when-a-reader-falls-behind-retention" style="--depth: 0;" class="astro-jugkfwgx"><span style="--depth: 0;" class="astro-jugkfwgx">When a reader falls behind retention</span></a></li><li style="--depth: 0;" class="astro-jugkfwgx"><a href="#copies-on-other-brokers" style="--depth: 0;" class="astro-jugkfwgx"><span style="--depth: 0;" class="astro-jugkfwgx">Copies on other brokers</span></a></li><li style="--depth: 0;" class="astro-jugkfwgx"><a href="#keeping-only-the-latest-value" style="--depth: 0;" class="astro-jugkfwgx"><span style="--depth: 0;" class="astro-jugkfwgx">Keeping only the latest value</span></a></li><li style="--depth: 0;" class="astro-jugkfwgx"><a href="#what-to-remember" style="--depth: 0;" class="astro-jugkfwgx"><span style="--depth: 0;" class="astro-jugkfwgx">What to remember</span></a></li><li style="--depth: 0;" class="astro-jugkfwgx"><a href="#references" style="--depth: 0;" class="astro-jugkfwgx"><span style="--depth: 0;" class="astro-jugkfwgx">References</span></a></li><li style="--depth: 0;" class="astro-jugkfwgx"><a href="#further-reading" style="--depth: 0;" class="astro-jugkfwgx"><span style="--depth: 0;" class="astro-jugkfwgx">Further reading</span></a></li></ul></nav></starlight-toc><script type="module" src="/_astro/TableOfContents.astro_astro_type_script_index_0_lang.BpJaGz7G.js"></script></div></div><script type="module">async function e(){let e=document.querySelector(`starlight-toc`);if(!e)return;let t=[...e.querySelectorAll(`a[href^="#"]`)].map(e=>document.getElementById(decodeURIComponent(e.hash.slice(1)))).filter(e=>e!==null);if(t.length<2)return;await document.fonts.ready;let n=()=>{let e=parseFloat(getComputedStyle(document.documentElement).scrollPaddingTop)||0,n=t[0];for(let r of t){let t=parseFloat(getComputedStyle(r).scrollMarginTop)||0;if(r.getBoundingClientRect().top>e+t+2)break;n=r}let r=new URL(window.location.href);r.hash=n.id===`_top`?``:n.id,r.href!==window.location.href&&history.replaceState(history.state,``,r)},r;requestAnimationFrame(()=>{window.addEventListener(`scroll`,()=>{clearTimeout(r),r=setTimeout(n,150)},{passive:!0})})}e();</script></div></aside><div class="main-pane astro-z2restcr"><main data-pagefind-body class="astro-g5ptsecz" lang="en" dir="ltr"><div class="content-panel astro-a7po4psb"><div class="sl-container astro-a7po4psb"><div class="article-heading astro-rpssgujp"><p class="article-section astro-rpssgujp">Distributed processing and the log</p><h1 id="_top" class="astro-rpssgujp">How long does Kafka keep history?</h1><p class="article-description astro-rpssgujp">How retention decides how far back a log can be read, why copies on several brokers protect against a different failure, and when keeping only the latest value of each key is enough.</p><details class="course-ai astro-rpssgujp"><summary class="astro-rpssgujp">Study with an AI assistant 🤖</summary><div class="course-ai-body astro-rpssgujp"><p class="course-ai-hint astro-g73rzpxe">Copy the prompt and paste it into a chat with an AI assistant.</p><div class="expressive-code astro-g73rzpxe"><link rel="stylesheet" href="/_astro/ec.w36nc.css"><script type="module" src="/_astro/ec.0vx5m.js"></script><figure class="frame not-content"><figcaption class="header"></figcaption><pre data-language="text" class="wrap" style="--ecMaxLine:271ch"><code><div class="ec-line"><div class="code"><span style="--0:#d6deeb;--1:#403f53">You are a tutor for the course "Stream Processing".</span></div></div><div class="ec-line"><div class="code"><span style="--0:#d6deeb;--1:#403f53">Topic: "How long does Kafka keep history?"</span></div></div><div class="ec-line"><div class="code"><span style="--0:#d6deeb;--1:#403f53">In short: How retention decides how far back a log can be read, why copies on several brokers protect against a different failure, and when keeping only the latest value of each key is enough.</span></div></div><div class="ec-line"><div class="code"><span style="--0:#d6deeb;--1:#403f53">Article text in Markdown: https://stream-processing-systems.github.io/en/course/distribution/how-long-does-kafka-keep-history.md</span></div></div><div class="ec-line"><div class="code"><span style="--0:#d6deeb;--1:#403f53">Base your explanations on this article. First ask how I want to study: a short summary, a step-by-step walkthrough, or a deep dive with questions that check my understanding. Use the article's example and terms. If you add anything the article does not say, point it out.</span></div></div></code></pre><div class="copy"><div aria-live="polite"></div><button title="Copy to clipboard" data-copied="Copied!" data-code="You are a tutor for the course &#x22;Stream Processing&#x22;.Topic: &#x22;How long does Kafka keep history?&#x22;In short: How retention decides how far back a log can be read, why copies on several brokers protect against a different failure, and when keeping only the latest value of each key is enough.Article text in Markdown: https://stream-processing-systems.github.io/en/course/distribution/how-long-does-kafka-keep-history.mdBase your explanations on this article. First ask how I want to study: a short summary, a step-by-step walkthrough, or a deep dive with questions that check my understanding. Use the article&#x27;s example and terms. If you add anything the article does not say, point it out."><div></div></button></div></figure></div></div></details></div></div></div><div class="content-panel astro-a7po4psb"><div class="sl-container astro-a7po4psb"><div class="sl-markdown-content" data-course-widgets data-widget-labels="{&quot;close&quot;:&quot;Close&quot;,&quot;definition&quot;:&quot;Definition:&quot;,&quot;diagram&quot;:&quot;Diagram viewer&quot;,&quot;zoomIn&quot;:&quot;Zoom in&quot;,&quot;zoomOut&quot;:&quot;Zoom out&quot;,&quot;fit&quot;:&quot;Fit&quot;,&quot;original&quot;:&quot;Open original&quot;,&quot;zoom&quot;:&quot;Zoom&quot;,&quot;diagramHint&quot;:&quot;Use + / − to zoom. Scroll to explore the diagram.&quot;,&quot;definitions&quot;:&quot;Definitions&quot;}"><p>On February 10, the team of our AI assistant fixes the bug introduced eight
+days earlier and wants to <a href="/en/course/distribution/consumer-groups-and-replay-in-kafka/" data-course-link="">recompute usage</a>.
+It restores the last checkpoint before the bug, from 06:01 on February 2.
+The <code dir="auto">usage</code> topic uses Kafka’s default seven-day retention, and in this case
+the segments needed to continue from that checkpoint have already been
+deleted. The team can restore the saved state, but the log no longer has all
+the input needed to bring the totals up to date.</p>
+<p>So the log keeps history only for a while, and that time is a setting. How
+long should records stay, what protects them while they stay, and does every
+topic need to keep every record?</p>
+<figure class="course-diagram">
+<svg viewBox="0 0 384 216" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="retention-and-replay-gap-title retention-and-replay-gap-desc">
+<title id="retention-and-replay-gap-title">When history no longer reaches the checkpoint</title>
+<desc id="retention-and-replay-gap-desc">Replay needs input from the checkpoint, but deletion of old segments leaves only the later part of that input in Kafka.</desc>
+  <style>
+    .cd-paper { fill: var(--sl-color-bg, #ffffff); }
+    .cd-name { fill: var(--sl-color-white, #18181b); font: 600 14px var(--sl-font, system-ui, sans-serif); }
+    .cd-sub { fill: var(--sl-color-gray-3, #52525b); font: 12px var(--sl-font, system-ui, sans-serif); }
+    .cd-code { fill: var(--sl-color-gray-3, #52525b); font: 12px var(--sl-font-mono, ui-monospace, monospace); }
+    .cd-label { fill: var(--sl-color-gray-3, #52525b); font: 11px var(--sl-font-mono, ui-monospace, monospace); letter-spacing: 0.06em; }
+    .cd-zone-label { fill: var(--sl-color-text-accent, #6366f1); font: 600 11px var(--sl-font-mono, ui-monospace, monospace); letter-spacing: 0.14em; }
+    .cd-arrow { stroke: var(--sl-color-gray-3, #52525b); stroke-width: 1.2; }
+    .cd-arrow-head { fill: var(--sl-color-gray-3, #52525b); }
+    .cd-zone { fill: var(--sl-color-accent-low, #eef0fe); stroke: var(--sl-color-accent, #6366f1); stroke-width: 1; }
+    .cd-node { fill: var(--sl-color-bg, #ffffff); stroke: var(--sl-color-gray-3, #52525b); stroke-width: 1; }
+    .cd-input { fill: color-mix(in srgb, var(--sl-color-gray-3, #52525b) 10%, var(--sl-color-bg, #ffffff)); stroke: var(--sl-color-gray-4, #a1a1aa); stroke-width: 1; }
+    .cd-store { fill: color-mix(in srgb, var(--sl-color-white, #18181b) 5%, var(--sl-color-bg, #ffffff)); stroke: var(--sl-color-gray-3, #52525b); stroke-width: 1; }
+    .cd-accent { fill: var(--sl-color-accent-low, #eef0fe); stroke: var(--sl-color-accent, #6366f1); stroke-width: 1; }
+    .cd-arrow-accent { stroke: var(--sl-color-accent, #6366f1); stroke-width: 1.2; }
+    .cd-arrow-accent-head { fill: var(--sl-color-accent, #6366f1); }
+    .cd-track { stroke: var(--sl-color-gray-4, #a1a1aa); stroke-width: 1; }
+    .cd-guide { stroke: var(--sl-color-gray-4, #a1a1aa); stroke-width: 1; stroke-dasharray: 2 4; }
+    .cd-dot { fill: var(--sl-color-gray-3, #52525b); }
+    .cd-accent-text { fill: var(--sl-color-text-accent, #6366f1); }
+    .cd-orange { fill: color-mix(in srgb, var(--course-orange, #c2410c) 12%, var(--sl-color-bg, #ffffff)); stroke: var(--course-orange, #c2410c); stroke-width: 1; }
+    .cd-orange-text { fill: var(--course-orange, #c2410c); }
+    .cd-teal { fill: color-mix(in srgb, var(--course-teal, #0f766e) 12%, var(--sl-color-bg, #ffffff)); stroke: var(--course-teal, #0f766e); stroke-width: 1; }
+    .cd-teal-text { fill: var(--course-teal, #0f766e); }
+  </style>
+<defs>
+<marker id="retention-and-replay-gap-arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon class="cd-arrow-head" points="0 0, 8 3, 0 6"></polygon></marker>
+</defs>
+<text class="cd-name" x="16" y="44">Needed for replay</text>
+<text class="cd-sub" x="16" y="62">from the checkpoint onward</text>
+<line class="cd-track" x1="200" y1="52" x2="368" y2="52"></line>
+<rect class="cd-accent" x="200" y="44" width="168" height="16" rx="4"></rect>
+<text class="cd-name" x="16" y="108">Still in the log</text>
+<text class="cd-sub" x="16" y="126">old segments deleted</text>
+<line class="cd-track" x1="200" y1="116" x2="368" y2="116"></line>
+<rect class="cd-store" x="272" y="108" width="96" height="16" rx="4"></rect>
+<line class="cd-guide" x1="272" y1="28" x2="272" y2="144"></line>
+<text class="cd-code" x="200" y="168">Feb 2</text>
+<text class="cd-code" x="368" y="168" text-anchor="end">Feb 10</text>
+<line class="cd-arrow" x1="200" y1="188" x2="364" y2="188" marker-end="url(#retention-and-replay-gap-arrow)"></line>
+<text class="cd-label" x="368" y="208" text-anchor="end">TIME · SCHEMATIC</text>
+</svg>
+</figure>
+<div class="sl-heading-wrapper level-h2"><h2 id="retention-how-long-records-stay">Retention: how long records stay</h2><a class="sl-anchor-link" href="#retention-how-long-records-stay"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 1 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 0 0-1.42-1.42m8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 1 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 0 0 0 1.42 1 1 0 0 0 1.42 0l3.88-3.89a4.49 4.49 0 0 0 0-6.33M8.83 15.17a1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.92-4.92a1 1 0 1 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42"></path></svg></span><span class="sr-only" data-pagefind-ignore="">Section titled “Retention: how long records stay”</span></a></div>
+<p>How long a topic keeps its records is called <strong>retention</strong>. Kafka can limit it
+by time, by the size of each partition, or both. By default, a topic keeps
+records for seven days and has no size limit.<sup><a href="https://kafka.apache.org/44/configuration/topic-configs/" id="user-content-fnref-1" data-footnote-ref="" title="Apache Kafka 4.4: Topic Configs, retention.ms, retention.bytes, and min.insync.replicas" target="_blank" rel="noopener noreferrer">1</a></sup></p>
+<p>Kafka stores each partition in files called segments and deletes old records a
+whole segment at a time. A segment goes once even its newest record is older
+than the retention time, and age is judged by the records’ timestamps.<sup><a href="https://kafka.apache.org/44/configuration/topic-configs/" id="user-content-fnref-1-2" data-footnote-ref="" title="Apache Kafka 4.4: Topic Configs, retention.ms, retention.bytes, and min.insync.replicas" target="_blank" rel="noopener noreferrer">1</a></sup>
+Usually, records stay somewhat longer than the setting, and the earliest
+available offset moves forward in jumps. It is not a promise, though: a record
+that arrives late with an old timestamp gets less time, and a size limit can
+remove segments earlier.</p>
+<p>The right retention follows from what readers need. Our list, from the
+shortest need to the longest:</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Need</th><th>How far back the log must reach</th></tr></thead><tbody><tr><td>Restart from a <a href="/en/course/reliability/what-must-survive-a-restart/" data-course-link="">checkpoint</a></td><td>To the oldest checkpoint the processor may restart from: minutes</td></tr><tr><td>Catch up after a processor outage</td><td>The longest outage we plan for: hours or days</td></tr><tr><td>Recompute after a bug</td><td>As long as a bug can go unnoticed: our bug went eight days</td></tr><tr><td>The finance team’s monthly check</td><td>The whole month, plus the days the check takes after it ends</td></tr></tbody></table>
+<p>The longest need decides: about forty days. Storage grows with the rate of
+records. If the assistant writes 1,000 records a second on average, at about
+300 bytes each, one day is about 26 GB, and forty days about 1 TB in each copy.
+That is affordable here. For older history, such as usage from last year that
+customers may dispute, Kafka can move old segments to cheaper remote storage,
+such as object storage, and keep only the recent ones on the brokers’ disks.
+This is called tiered storage.<sup><a href="https://kafka.apache.org/44/operations/tiered-storage/" id="user-content-fnref-2" data-footnote-ref="" title="Apache Kafka 4.4: Tiered Storage" target="_blank" rel="noopener noreferrer">2</a></sup></p>
+<div class="sl-heading-wrapper level-h2"><h2 id="when-a-reader-falls-behind-retention">When a reader falls behind retention</h2><a class="sl-anchor-link" href="#when-a-reader-falls-behind-retention"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 1 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 0 0-1.42-1.42m8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 1 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 0 0 0 1.42 1 1 0 0 0 1.42 0l3.88-3.89a4.49 4.49 0 0 0 0-6.33M8.83 15.17a1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.92-4.92a1 1 0 1 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42"></path></svg></span><span class="sr-only" data-pagefind-ignore="">Section titled “When a reader falls behind retention”</span></a></div>
+<p>Retention deletes records whether or not someone has read them. Suppose the
+finance reader is stopped on February 3 for a migration and started again on
+February 11. Its committed offset points to records of February 3, and with
+seven-day retention those records are gone.</p>
+<p>What happens next is a setting too. When a consumer’s offset no longer exists,
+Kafka moves it to the earliest or the latest available offset, and by default
+to the latest.<sup><a href="https://kafka.apache.org/44/configuration/consumer-configs/" id="user-content-fnref-3" data-footnote-ref="" title="Apache Kafka 4.4: Consumer Configs, auto.offset.reset" target="_blank" rel="noopener noreferrer">3</a></sup> The finance reader would quietly jump to the newest records
+and skip eight days. Its check would then compare part of the month with the
+billing system and find differences that are not real, or miss real ones.</p>
+<p>A reader that must not skip records is better off with an error. With
+<code dir="auto">auto.offset.reset=none</code>, the consumer reports an error instead of moving, and
+people decide what to do: find the records elsewhere or accept the gap knowingly.<sup><a href="https://kafka.apache.org/44/configuration/consumer-configs/" id="user-content-fnref-3-2" data-footnote-ref="" title="Apache Kafka 4.4: Consumer Configs, auto.offset.reset" target="_blank" rel="noopener noreferrer">3</a></sup></p>
+<div class="sl-heading-wrapper level-h2"><h2 id="copies-on-other-brokers">Copies on other brokers</h2><a class="sl-anchor-link" href="#copies-on-other-brokers"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 1 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 0 0-1.42-1.42m8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 1 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 0 0 0 1.42 1 1 0 0 0 1.42 0l3.88-3.89a4.49 4.49 0 0 0 0-6.33M8.83 15.17a1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.92-4.92a1 1 0 1 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42"></path></svg></span><span class="sr-only" data-pagefind-ignore="">Section titled “Copies on other brokers”</span></a></div>
+<p>Retention protects against age. A failing disk is a different danger: if the
+broker that stores partition 0 loses its disk, a seven-day or a forty-day
+retention does not matter.</p>
+<p>So Kafka keeps each partition on several brokers. One copy, on the <strong>leader</strong>,
+receives all writes; the other copies, the <strong>followers</strong>, read from the leader
+and repeat its writes. The leader together with the followers that keep up
+with it are called the <strong>in-sync replicas</strong>. With three copies, partition 0
+might have its leader on <code dir="auto">broker-1</code> and followers on <code dir="auto">broker-2</code> and
+<code dir="auto">broker-3</code>. If the leader fails, normally one of the in-sync followers becomes
+the new leader.<sup><a href="https://kafka.apache.org/44/design/design/" id="user-content-fnref-4" data-footnote-ref="" title="Apache Kafka 4.4: Design, Replication and Log Compaction" target="_blank" rel="noopener noreferrer">4</a></sup></p>
+<p>When does a write count as stored? By default, the producer waits until all
+current in-sync replicas have the record.<sup><a href="https://kafka.apache.org/44/configuration/producer-configs/" id="user-content-fnref-5" data-footnote-ref="" title="Apache Kafka 4.4: Producer Configs, acks" target="_blank" rel="noopener noreferrer">5</a></sup> Kafka’s promise is that such a
+record is not lost as long as at least one in-sync replica stays alive.<sup><a href="https://kafka.apache.org/44/design/design/" id="user-content-fnref-4-2" data-footnote-ref="" title="Apache Kafka 4.4: Design, Replication and Log Compaction" target="_blank" rel="noopener noreferrer">4</a></sup>
+The word “current” matters. Suppose <code dir="auto">broker-2</code> and <code dir="auto">broker-3</code> fall behind and
+leave the in-sync set. The leader alone is now all the in-sync replicas, and
+it acknowledges writes by itself. If <code dir="auto">broker-1</code> then loses its disk, the only
+current copy is gone, and the records it acknowledged in that time are lost.</p>
+<p>A topic can require a minimum number of in-sync replicas for a write. With
+the producer waiting for all of them and <code dir="auto">min.insync.replicas=2</code>, the leader
+refuses writes while it is the only one in sync.<sup><a href="https://kafka.apache.org/44/configuration/topic-configs/" id="user-content-fnref-1-3" data-footnote-ref="" title="Apache Kafka 4.4: Topic Configs, retention.ms, retention.bytes, and min.insync.replicas" target="_blank" rel="noopener noreferrer">1</a></sup> The gateway then gets an error and keeps the record to send again,
+which is <a href="/en/course/reliability/when-an-event-arrives-twice-or-never/" data-course-link="">at-least-once delivery</a>
+at work. The price is availability: while two of three brokers are down, the
+topic accepts no usage. The default, one, keeps accepting and risks the
+loss.<sup><a href="https://kafka.apache.org/44/design/design/" id="user-content-fnref-4-3" data-footnote-ref="" title="Apache Kafka 4.4: Design, Replication and Log Compaction" target="_blank" rel="noopener noreferrer">4</a></sup> For records that go into bills, we prefer the refusal.</p>
+<figure class="course-diagram">
+<svg viewBox="0 0 384 256" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="replica-write-minimum-title replica-write-minimum-desc">
+<title id="replica-write-minimum-title">A minimum number of in-sync replicas</title>
+<desc id="replica-write-minimum-desc">With acks=all and min.insync.replicas=2, the gateway receives an error if broker-1 is the only in-sync replica and keeps the record for a retry.</desc>
+  <style>
+    .cd-paper { fill: var(--sl-color-bg, #ffffff); }
+    .cd-name { fill: var(--sl-color-white, #18181b); font: 600 14px var(--sl-font, system-ui, sans-serif); }
+    .cd-sub { fill: var(--sl-color-gray-3, #52525b); font: 12px var(--sl-font, system-ui, sans-serif); }
+    .cd-code { fill: var(--sl-color-gray-3, #52525b); font: 12px var(--sl-font-mono, ui-monospace, monospace); }
+    .cd-label { fill: var(--sl-color-gray-3, #52525b); font: 11px var(--sl-font-mono, ui-monospace, monospace); letter-spacing: 0.06em; }
+    .cd-zone-label { fill: var(--sl-color-text-accent, #6366f1); font: 600 11px var(--sl-font-mono, ui-monospace, monospace); letter-spacing: 0.14em; }
+    .cd-arrow { stroke: var(--sl-color-gray-3, #52525b); stroke-width: 1.2; }
+    .cd-arrow-head { fill: var(--sl-color-gray-3, #52525b); }
+    .cd-zone { fill: var(--sl-color-accent-low, #eef0fe); stroke: var(--sl-color-accent, #6366f1); stroke-width: 1; }
+    .cd-node { fill: var(--sl-color-bg, #ffffff); stroke: var(--sl-color-gray-3, #52525b); stroke-width: 1; }
+    .cd-input { fill: color-mix(in srgb, var(--sl-color-gray-3, #52525b) 10%, var(--sl-color-bg, #ffffff)); stroke: var(--sl-color-gray-4, #a1a1aa); stroke-width: 1; }
+    .cd-store { fill: color-mix(in srgb, var(--sl-color-white, #18181b) 5%, var(--sl-color-bg, #ffffff)); stroke: var(--sl-color-gray-3, #52525b); stroke-width: 1; }
+    .cd-accent { fill: var(--sl-color-accent-low, #eef0fe); stroke: var(--sl-color-accent, #6366f1); stroke-width: 1; }
+    .cd-arrow-accent { stroke: var(--sl-color-accent, #6366f1); stroke-width: 1.2; }
+    .cd-arrow-accent-head { fill: var(--sl-color-accent, #6366f1); }
+    .cd-track { stroke: var(--sl-color-gray-4, #a1a1aa); stroke-width: 1; }
+    .cd-guide { stroke: var(--sl-color-gray-4, #a1a1aa); stroke-width: 1; stroke-dasharray: 2 4; }
+    .cd-dot { fill: var(--sl-color-gray-3, #52525b); }
+    .cd-accent-text { fill: var(--sl-color-text-accent, #6366f1); }
+    .cd-orange { fill: color-mix(in srgb, var(--course-orange, #c2410c) 12%, var(--sl-color-bg, #ffffff)); stroke: var(--course-orange, #c2410c); stroke-width: 1; }
+    .cd-orange-text { fill: var(--course-orange, #c2410c); }
+    .cd-teal { fill: color-mix(in srgb, var(--course-teal, #0f766e) 12%, var(--sl-color-bg, #ffffff)); stroke: var(--course-teal, #0f766e); stroke-width: 1; }
+    .cd-teal-text { fill: var(--course-teal, #0f766e); }
+  </style>
+<defs>
+<marker id="replica-write-minimum-arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon class="cd-arrow-head" points="0 0, 8 3, 0 6"></polygon></marker>
+</defs>
+<line class="cd-arrow" x1="192" y1="60" x2="192" y2="100" marker-end="url(#replica-write-minimum-arrow)"></line>
+<text class="cd-label" x="204" y="84">USAGE RECORD</text>
+<line class="cd-arrow" x1="192" y1="156" x2="192" y2="196" marker-end="url(#replica-write-minimum-arrow)"></line>
+<text class="cd-label" x="204" y="180">ERROR</text>
+<rect class="cd-input" x="48" y="4" width="288" height="56" rx="6"></rect>
+<text class="cd-name" x="192" y="28" text-anchor="middle">Gateway</text>
+<text class="cd-code" x="192" y="46" text-anchor="middle">acks=all</text>
+<rect class="cd-accent" x="48" y="100" width="288" height="56" rx="6"></rect>
+<text class="cd-name" x="192" y="124" text-anchor="middle">Only broker-1 is in sync</text>
+<text class="cd-code" x="192" y="142" text-anchor="middle">min.insync.replicas=2</text>
+<rect class="cd-node" x="48" y="196" width="288" height="56" rx="6"></rect>
+<text class="cd-name" x="192" y="220" text-anchor="middle">Write refused</text>
+<text class="cd-sub" x="192" y="238" text-anchor="middle">gateway keeps record for retry</text>
+</svg>
+</figure>
+<p>Copies protect against broken machines, not against wrong data. Retention
+deletes a record on every copy at once. If the gateway writes wrong records,
+all three brokers keep them faithfully.</p>
+<div class="sl-heading-wrapper level-h2"><h2 id="keeping-only-the-latest-value">Keeping only the latest value</h2><a class="sl-anchor-link" href="#keeping-only-the-latest-value"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 1 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 0 0-1.42-1.42m8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 1 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 0 0 0 1.42 1 1 0 0 0 1.42 0l3.88-3.89a4.49 4.49 0 0 0 0-6.33M8.83 15.17a1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.92-4.92a1 1 0 1 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42"></path></svg></span><span class="sr-only" data-pagefind-ignore="">Section titled “Keeping only the latest value”</span></a></div>
+<p>Not every topic needs its whole history. The usage processor publishes each
+account’s current total for the month to a topic <code dir="auto">account-totals</code>, and the
+usage page reads it. Partition 0 of that topic receives:</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Offset</th><th>Key</th><th>Value</th></tr></thead><tbody><tr><td>0</td><td><code dir="auto">acme</code></td><td>1,000</td></tr><tr><td>1</td><td><code dir="auto">acme</code></td><td>1,400</td></tr><tr><td>2</td><td><code dir="auto">delta</code></td><td>300</td></tr><tr><td>3</td><td><code dir="auto">acme</code></td><td>2,000</td></tr></tbody></table>
+<p>Each new total replaces the previous one for its key. A page that starts
+reading this topic needs only the last value of each account. For such topics,
+Kafka offers <strong>compaction</strong>: instead of deleting records by age, it keeps at
+least the last record for each key and removes older records with the same
+key.<sup><a href="https://kafka.apache.org/44/design/design/" id="user-content-fnref-4-4" data-footnote-ref="" title="Apache Kafka 4.4: Design, Replication and Log Compaction" target="_blank" rel="noopener noreferrer">4</a></sup> After compaction, partition 0 holds <code dir="auto">delta</code> 300 at offset 2 and <code dir="auto">acme</code>
+2,000 at offset 3. Offsets do not change, so a gap appears where the removed
+records were. A reader that reads the topic from the start still arrives at
+the latest value of every key.<sup><a href="https://kafka.apache.org/44/design/design/" id="user-content-fnref-4-5" data-footnote-ref="" title="Apache Kafka 4.4: Design, Replication and Log Compaction" target="_blank" rel="noopener noreferrer">4</a></sup></p>
+<figure class="course-diagram">
+<svg viewBox="0 0 384 284" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="compaction-keeps-offsets-title compaction-keeps-offsets-desc">
+<title id="compaction-keeps-offsets-title">Keeping only the latest value</title>
+<desc id="compaction-keeps-offsets-desc">Compaction removes older acme totals at offsets 0 and 1 and leaves delta at 2 and acme at 3 without renumbering them.</desc>
+  <style>
+    .cd-paper { fill: var(--sl-color-bg, #ffffff); }
+    .cd-name { fill: var(--sl-color-white, #18181b); font: 600 14px var(--sl-font, system-ui, sans-serif); }
+    .cd-sub { fill: var(--sl-color-gray-3, #52525b); font: 12px var(--sl-font, system-ui, sans-serif); }
+    .cd-code { fill: var(--sl-color-gray-3, #52525b); font: 12px var(--sl-font-mono, ui-monospace, monospace); }
+    .cd-label { fill: var(--sl-color-gray-3, #52525b); font: 11px var(--sl-font-mono, ui-monospace, monospace); letter-spacing: 0.06em; }
+    .cd-zone-label { fill: var(--sl-color-text-accent, #6366f1); font: 600 11px var(--sl-font-mono, ui-monospace, monospace); letter-spacing: 0.14em; }
+    .cd-arrow { stroke: var(--sl-color-gray-3, #52525b); stroke-width: 1.2; }
+    .cd-arrow-head { fill: var(--sl-color-gray-3, #52525b); }
+    .cd-zone { fill: var(--sl-color-accent-low, #eef0fe); stroke: var(--sl-color-accent, #6366f1); stroke-width: 1; }
+    .cd-node { fill: var(--sl-color-bg, #ffffff); stroke: var(--sl-color-gray-3, #52525b); stroke-width: 1; }
+    .cd-input { fill: color-mix(in srgb, var(--sl-color-gray-3, #52525b) 10%, var(--sl-color-bg, #ffffff)); stroke: var(--sl-color-gray-4, #a1a1aa); stroke-width: 1; }
+    .cd-store { fill: color-mix(in srgb, var(--sl-color-white, #18181b) 5%, var(--sl-color-bg, #ffffff)); stroke: var(--sl-color-gray-3, #52525b); stroke-width: 1; }
+    .cd-accent { fill: var(--sl-color-accent-low, #eef0fe); stroke: var(--sl-color-accent, #6366f1); stroke-width: 1; }
+    .cd-arrow-accent { stroke: var(--sl-color-accent, #6366f1); stroke-width: 1.2; }
+    .cd-arrow-accent-head { fill: var(--sl-color-accent, #6366f1); }
+    .cd-track { stroke: var(--sl-color-gray-4, #a1a1aa); stroke-width: 1; }
+    .cd-guide { stroke: var(--sl-color-gray-4, #a1a1aa); stroke-width: 1; stroke-dasharray: 2 4; }
+    .cd-dot { fill: var(--sl-color-gray-3, #52525b); }
+    .cd-accent-text { fill: var(--sl-color-text-accent, #6366f1); }
+    .cd-orange { fill: color-mix(in srgb, var(--course-orange, #c2410c) 12%, var(--sl-color-bg, #ffffff)); stroke: var(--course-orange, #c2410c); stroke-width: 1; }
+    .cd-orange-text { fill: var(--course-orange, #c2410c); }
+    .cd-teal { fill: color-mix(in srgb, var(--course-teal, #0f766e) 12%, var(--sl-color-bg, #ffffff)); stroke: var(--course-teal, #0f766e); stroke-width: 1; }
+    .cd-teal-text { fill: var(--course-teal, #0f766e); }
+  </style>
+<defs>
+<marker id="compaction-keeps-offsets-arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon class="cd-arrow-head" points="0 0, 8 3, 0 6"></polygon></marker>
+</defs>
+<text class="cd-label" x="48" y="20">BEFORE COMPACTION</text>
+<rect class="cd-input" x="48" y="32" width="72" height="56" rx="6"></rect>
+<text class="cd-code" x="84" y="52" text-anchor="middle">acme</text>
+<text class="cd-code" x="84" y="72" text-anchor="middle">1,000</text>
+<text class="cd-code" x="84" y="104" text-anchor="middle">0</text>
+<rect class="cd-input" x="128" y="32" width="72" height="56" rx="6"></rect>
+<text class="cd-code" x="164" y="52" text-anchor="middle">acme</text>
+<text class="cd-code" x="164" y="72" text-anchor="middle">1,400</text>
+<text class="cd-code" x="164" y="104" text-anchor="middle">1</text>
+<rect class="cd-input" x="208" y="32" width="72" height="56" rx="6"></rect>
+<text class="cd-code" x="244" y="52" text-anchor="middle">delta</text>
+<text class="cd-code" x="244" y="72" text-anchor="middle">300</text>
+<text class="cd-code" x="244" y="104" text-anchor="middle">2</text>
+<rect class="cd-input" x="288" y="32" width="72" height="56" rx="6"></rect>
+<text class="cd-code" x="324" y="52" text-anchor="middle">acme</text>
+<text class="cd-code" x="324" y="72" text-anchor="middle">2,000</text>
+<text class="cd-code" x="324" y="104" text-anchor="middle">3</text>
+<line class="cd-arrow" x1="192" y1="120" x2="192" y2="160" marker-end="url(#compaction-keeps-offsets-arrow)"></line>
+<text class="cd-label" x="204" y="144">COMPACTION</text>
+<text class="cd-label" x="48" y="184">LATEST VALUE OF EACH KEY</text>
+<rect class="cd-store" x="208" y="196" width="72" height="56" rx="6"></rect>
+<text class="cd-code" x="244" y="216" text-anchor="middle">delta</text>
+<text class="cd-code" x="244" y="236" text-anchor="middle">300</text>
+<text class="cd-code" x="244" y="268" text-anchor="middle">2</text>
+<rect class="cd-accent" x="288" y="196" width="72" height="56" rx="6"></rect>
+<text class="cd-code" x="324" y="216" text-anchor="middle">acme</text>
+<text class="cd-code" x="324" y="236" text-anchor="middle">2,000</text>
+<text class="cd-code" x="324" y="268" text-anchor="middle">3</text>
+<text class="cd-label" x="48" y="268">OFFSET</text>
+</svg>
+</figure>
+<p>To remove a key completely, the producer writes a record with that key and a
+<code dir="auto">null</code> value, no value at all, called a <strong>tombstone</strong>. An empty string would
+not do: compaction would keep it as the key’s latest value. Compaction removes
+the key’s earlier records, and the tombstone itself is removed later, by
+default after a day (<code dir="auto">delete.retention.ms</code>). A reader that is away longer may
+never see that the key was deleted.<sup><a href="https://kafka.apache.org/44/design/design/" id="user-content-fnref-4-6" data-footnote-ref="" title="Apache Kafka 4.4: Design, Replication and Log Compaction" target="_blank" rel="noopener noreferrer">4</a></sup> The same holds for a reader that
+rebuilds the table from the start: it has to reach the end of the topic within
+that day, or it may read the last total of a closed account and miss its tombstone.</p>
+<p>Compaction on the <code dir="auto">usage</code> topic would be a mistake. Its key is the account
+too, but its records do not replace each other: each one adds tokens. After
+compaction, <code dir="auto">acme</code> would keep only <code dir="auto">u-103</code> with 600 tokens, and a recomputed
+total would be 600 instead of 2,000. Records that add up need retention by
+time. Records that replace each other can be compacted. One system usually has
+both kinds of topics.</p>
+<p>A compacted topic keeps the latest value of each key, which is what a table
+holds. The assistant already has a table of that kind, in a database: the plan
+of each account, with its price per token and monthly limit. The processor
+needs it to turn tokens into money, and the plan can change at any moment, when
+<code dir="auto">acme</code> moves to a larger plan at 14:20. Copying the whole table now and then
+would miss the moment of the change and load the database. How can the
+changes made in a database become records in a log?</p>
+<div class="sl-heading-wrapper level-h2"><h2 id="what-to-remember">What to remember</h2><a class="sl-anchor-link" href="#what-to-remember"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 1 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 0 0-1.42-1.42m8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 1 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 0 0 0 1.42 1 1 0 0 0 1.42 0l3.88-3.89a4.49 4.49 0 0 0 0-6.33M8.83 15.17a1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.92-4.92a1 1 0 1 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42"></path></svg></span><span class="sr-only" data-pagefind-ignore="">Section titled “What to remember”</span></a></div>
+<ul>
+<li>Retention decides how long a topic keeps records, by time or size, and Kafka
+deletes whole segments. It follows from the longest need of any reader.</li>
+<li>A reader whose offset has been deleted by default jumps to the newest
+records. A reader that must not skip records should get an error instead.</li>
+<li>Copies on several brokers protect against a broken machine. A minimum number
+of in-sync replicas trades availability for not losing acknowledged records.
+Copies do not protect against wrong data.</li>
+<li>Compaction keeps the latest record of each key. It suits records that
+replace each other and breaks records that add up.</li>
+</ul>
+<div class="sl-heading-wrapper level-h2"><h2 id="references">References</h2><a class="sl-anchor-link" href="#references"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 1 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 0 0-1.42-1.42m8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 1 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 0 0 0 1.42 1 1 0 0 0 1.42 0l3.88-3.89a4.49 4.49 0 0 0 0-6.33M8.83 15.17a1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.92-4.92a1 1 0 1 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42"></path></svg></span><span class="sr-only" data-pagefind-ignore="">Section titled “References”</span></a></div><section data-footnotes="" class="footnotes" aria-label="Sources"><ol>
+<li id="user-content-fn-1">
+<p><a href="https://kafka.apache.org/44/configuration/topic-configs/" target="_blank" rel="noopener noreferrer">Apache Kafka 4.4: Topic Configs, retention.ms, retention.bytes, and min.insync.replicas</a>.  </p>
+</li>
+<li id="user-content-fn-2">
+<p><a href="https://kafka.apache.org/44/operations/tiered-storage/" target="_blank" rel="noopener noreferrer">Apache Kafka 4.4: Tiered Storage</a>.</p>
+</li>
+<li id="user-content-fn-3">
+<p><a href="https://kafka.apache.org/44/configuration/consumer-configs/" target="_blank" rel="noopener noreferrer">Apache Kafka 4.4: Consumer Configs, auto.offset.reset</a>. </p>
+</li>
+<li id="user-content-fn-4">
+<p><a href="https://kafka.apache.org/44/design/design/" target="_blank" rel="noopener noreferrer">Apache Kafka 4.4: Design, Replication and Log Compaction</a>.     </p>
+</li>
+<li id="user-content-fn-5">
+<p><a href="https://kafka.apache.org/44/configuration/producer-configs/" target="_blank" rel="noopener noreferrer">Apache Kafka 4.4: Producer Configs, acks</a>.</p>
+</li>
+</ol></section>
+<div class="sl-heading-wrapper level-h2"><h2 id="further-reading">Further reading</h2><a class="sl-anchor-link" href="#further-reading"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 1 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 0 0-1.42-1.42m8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 1 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 0 0 0 1.42 1 1 0 0 0 1.42 0l3.88-3.89a4.49 4.49 0 0 0 0-6.33M8.83 15.17a1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.92-4.92a1 1 0 1 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42"></path></svg></span><span class="sr-only" data-pagefind-ignore="">Section titled “Further reading”</span></a></div>
+<ul>
+<li>Gwen Shapira, Todd Palino, Rajini Sivaram, and Krit Petty, <em><a href="https://www.oreilly.com/library/view/kafka-the-definitive/9781492043072/">Kafka: The Definitive Guide</a></em>,
+2nd ed. (O’Reilly Media, 2021), chap. 6, “Kafka Internals,” and chap. 7,
+“Reliable Data Delivery.” The first shows how partitions are replicated and
+stored in segments, and how retention and compaction remove old records. The
+second explains which settings decide whether an acknowledged record can be
+lost.</li>
+</ul>
+</div><div class="course-progress-row"><button type="button" class="course-progress-toggle" role="switch" aria-checked="false" data-course-progress-toggle hidden><span class="course-progress" data-state="seen" aria-hidden="true"></span>Mark as read</button></div><footer class="sl-flex astro-ddtxxk7k"><div class="meta sl-flex astro-ddtxxk7k"></div><nav class="course-pagination" aria-label="Article navigation"><a href="/en/course/distribution/consumer-groups-and-replay-in-kafka/" rel="prev"><span class="pagination-direction">← Previous</span><span class="pagination-title">Consumer groups and replay in Kafka</span><span class="pagination-section">Distributed processing and the log</span></a><a href="/en/course/distribution/capturing-changes-from-a-database/" rel="next"><span class="pagination-direction">Next →</span><span class="pagination-title">Capturing changes from a database</span><span class="pagination-section">Distributed processing and the log</span></a></nav></footer><p class="course-license astro-7g3h5dfi">© 2026 <a href="https://alexengrig.github.io" class="astro-7g3h5dfi">Grig Alex</a> · <a href="https://creativecommons.org/licenses/by-sa/4.0/" rel="license" class="astro-7g3h5dfi">CC BY-SA 4.0</a></p></div></div></main></div></div></div></div></body></html>

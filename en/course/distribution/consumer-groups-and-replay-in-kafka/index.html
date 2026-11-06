@@ -1,0 +1,403 @@
+<!DOCTYPE html><html lang="en" dir="ltr" data-theme="dark" data-has-toc data-has-sidebar class="astro-g5ptsecz"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/><title>Consumer groups and replay in Kafka | Stream Processing</title><link rel="canonical" href="https://stream-processing-systems.github.io/en/course/distribution/consumer-groups-and-replay-in-kafka/"/><link rel="alternate" hreflang="en" href="https://stream-processing-systems.github.io/en/course/distribution/consumer-groups-and-replay-in-kafka/"/><link rel="alternate" hreflang="ru" href="https://stream-processing-systems.github.io/ru/course/distribution/consumer-groups-and-replay-in-kafka/"/><link rel="alternate" hreflang="x-default" href="https://stream-processing-systems.github.io/en/course/distribution/consumer-groups-and-replay-in-kafka/"/><link rel="sitemap" href="/sitemap-index.xml"/><link rel="apple-touch-icon" href="/apple-touch-icon.png"/><link rel="icon" href="/favicon.ico" sizes="32x32"/><link rel="manifest" href="/manifest.webmanifest"/><script src="/article-widgets.js" defer></script><script src="/course-progress.js" defer></script><script async src="https://www.googletagmanager.com/gtag/js?id=G-C0KBX4XM6J"></script><script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','G-C0KBX4XM6J');</script><script src="/language-preference.js" defer></script><link rel="shortcut icon" href="/favicon-32.png" type="image/png"/><meta name="generator" content="Astro v7.3.5"/><meta name="generator" content="Starlight v0.42.5"/><meta property="og:title" content="Consumer groups and replay in Kafka"/><meta property="og:type" content="article"/><meta property="og:url" content="https://stream-processing-systems.github.io/en/course/distribution/consumer-groups-and-replay-in-kafka/"/><meta property="og:locale" content="en"/><meta property="og:description" content="How Kafka shares partitions among the consumers of a group and moves them when one fails, why a committed offset needs matching state, and how independent groups read the same history and read it again."/><meta property="og:site_name" content="Stream Processing"/><meta name="twitter:card" content="summary_large_image"/><meta name="description" content="How Kafka shares partitions among the consumers of a group and moves them when one fails, why a committed offset needs matching state, and how independent groups read the same history and read it again."/><meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)"/><meta name="theme-color" content="#2b2b30" media="(prefers-color-scheme: dark)"/><meta property="og:image" content="https://stream-processing-systems.github.io/og-image-en.png"/><meta property="og:image:width" content="1200"/><meta property="og:image:height" content="630"/><meta name="twitter:image" content="https://stream-processing-systems.github.io/og-image-en.png"/><script>
+	window.StarlightThemeProvider = (() => {
+		const storedTheme =
+			typeof localStorage !== 'undefined' && localStorage.getItem('starlight-theme');
+		const theme =
+			storedTheme ||
+			(window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark');
+		document.documentElement.dataset.theme = theme === 'light' ? 'light' : 'dark';
+		return {
+			updatePickers(theme = storedTheme || 'auto') {
+				document.querySelectorAll('starlight-theme-select').forEach((picker) => {
+					const select = picker.querySelector('select');
+					if (select) select.value = theme;
+					/** @type {HTMLTemplateElement | null} */
+					const tmpl = document.querySelector(`#theme-icons`);
+					const newIcon = tmpl && tmpl.content.querySelector('.' + theme);
+					if (newIcon) {
+						const oldIcon = picker.querySelector('svg.label-icon');
+						if (oldIcon) {
+							oldIcon.replaceChildren(...newIcon.cloneNode(true).childNodes);
+						}
+					}
+				});
+			},
+		};
+	})();
+</script><template id="theme-icons"><svg aria-hidden="true" class="light astro-hkc32dio" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M5 12a1 1 0 0 0-1-1H3a1 1 0 0 0 0 2h1a1 1 0 0 0 1-1Zm.64 5-.71.71a1 1 0 0 0 0 1.41 1 1 0 0 0 1.41 0l.71-.71A1 1 0 0 0 5.64 17ZM12 5a1 1 0 0 0 1-1V3a1 1 0 0 0-2 0v1a1 1 0 0 0 1 1Zm5.66 2.34a1 1 0 0 0 .7-.29l.71-.71a1 1 0 1 0-1.41-1.41l-.66.71a1 1 0 0 0 0 1.41 1 1 0 0 0 .66.29Zm-12-.29a1 1 0 0 0 1.41 0 1 1 0 0 0 0-1.41l-.71-.71a1.004 1.004 0 1 0-1.43 1.41l.73.71ZM21 11h-1a1 1 0 0 0 0 2h1a1 1 0 0 0 0-2Zm-2.64 6A1 1 0 0 0 17 18.36l.71.71a1 1 0 0 0 1.41 0 1 1 0 0 0 0-1.41l-.76-.66ZM12 6.5a5.5 5.5 0 1 0 5.5 5.5A5.51 5.51 0 0 0 12 6.5Zm0 9a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7Zm0 3.5a1 1 0 0 0-1 1v1a1 1 0 0 0 2 0v-1a1 1 0 0 0-1-1Z"/></svg><svg aria-hidden="true" class="dark astro-hkc32dio" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M21.64 13a1 1 0 0 0-1.05-.14 8.049 8.049 0 0 1-3.37.73 8.15 8.15 0 0 1-8.14-8.1 8.59 8.59 0 0 1 .25-2A1 1 0 0 0 8 2.36a10.14 10.14 0 1 0 14 11.69 1 1 0 0 0-.36-1.05Zm-9.5 6.69A8.14 8.14 0 0 1 7.08 5.22v.27a10.15 10.15 0 0 0 10.14 10.14 9.784 9.784 0 0 0 2.1-.22 8.11 8.11 0 0 1-7.18 4.32v-.04Z"/></svg><svg aria-hidden="true" class="auto astro-hkc32dio" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M21 14h-1V7a3 3 0 0 0-3-3H7a3 3 0 0 0-3 3v7H3a1 1 0 0 0-1 1v2a3 3 0 0 0 3 3h14a3 3 0 0 0 3-3v-2a1 1 0 0 0-1-1ZM6 7a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v7H6V7Zm14 10a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-1h16v1Z"/></svg></template><link rel="stylesheet" href="/_astro/print.ehPL0gv-.css" media="print"><link rel="stylesheet" href="/_astro/index.DGaUXbc6.css"><script type="module" src="/_astro/page.Dwipeu-R.js"></script></head><body class="astro-g5ptsecz"><a class="sl-skip-link astro-qb7clj6f" href="#_top">Skip to content</a><div class="page sl-flex astro-jvulkizc"><header class="header astro-jvulkizc"><div class="header astro-by6fddyj"><div class="title-wrapper sl-flex astro-by6fddyj"><a href="/en" class="site-title sl-flex astro-6rvad3va"><img class="astro-6rvad3va" alt src="/_astro/logo.DKQKHWKq.png" width="192" height="192"><span class="astro-6rvad3va" translate="no">Stream Processing</span></a></div><div class="sl-flex print:hidden astro-by6fddyj"><site-search class="astro-223fx62r astro-b5kgnn7o" data-translations="{&quot;placeholder&quot;:&quot;Search&quot;,&quot;clear_search&quot;:&quot;Clear&quot;,&quot;load_more&quot;:&quot;Load more&quot;,&quot;search_label&quot;:&quot;Search this site&quot;,&quot;filters_label&quot;:&quot;Filters&quot;,&quot;zero_results&quot;:&quot;No results for [SEARCH_TERM]&quot;,&quot;many_results&quot;:&quot;[COUNT] results for [SEARCH_TERM]&quot;,&quot;one_result&quot;:&quot;[COUNT] result for [SEARCH_TERM]&quot;,&quot;alt_search&quot;:&quot;No results for [SEARCH_TERM]. Showing results for [DIFFERENT_TERM]&quot;,&quot;search_suggestion&quot;:&quot;No results for [SEARCH_TERM]. Try another search:&quot;,&quot;searching&quot;:&quot;Searching for [SEARCH_TERM]…&quot;}"><button data-open-modal disabled aria-label="Search" aria-keyshortcuts="Control+K" class="astro-b5kgnn7o"><svg aria-hidden="true" class="astro-b5kgnn7o astro-hkc32dio" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M21.71 20.29 18 16.61A9 9 0 1 0 16.61 18l3.68 3.68a.999.999 0 0 0 1.42 0 1 1 0 0 0 0-1.39ZM11 18a7 7 0 1 1 0-14 7 7 0 0 1 0 14Z"/></svg><span class="sl-hidden md:sl-block astro-b5kgnn7o" aria-hidden="true">Search</span><kbd class="sl-hidden md:sl-flex astro-b5kgnn7o" style="display: none;"><kbd class="astro-b5kgnn7o">Ctrl</kbd><kbd class="astro-b5kgnn7o">K</kbd></kbd></button><dialog style="padding:0" aria-label="Search" class="astro-b5kgnn7o"><div class="dialog-frame sl-flex astro-b5kgnn7o"><button data-close-modal class="sl-flex md:sl-hidden astro-b5kgnn7o">Cancel</button><div class="search-container astro-b5kgnn7o"><div id="starlight__search" class="astro-b5kgnn7o"></div></div></div></dialog></site-search><script>
+	(() => {
+		const openBtn = document.querySelector('button[data-open-modal]');
+		const shortcut = openBtn?.querySelector('kbd');
+		if (!openBtn || !(shortcut instanceof HTMLElement)) return;
+		const platformKey = shortcut.querySelector('kbd');
+		if (platformKey && /(Mac|iPhone|iPod|iPad)/i.test(navigator.platform)) {
+			platformKey.textContent = '⌘';
+			openBtn.setAttribute('aria-keyshortcuts', 'Meta+K');
+		}
+		shortcut.style.display = '';
+	})();
+</script><script type="module" src="/_astro/Search.astro_astro_type_script_index_0_lang.Bumivpjo.js"></script><div class="course-search-start astro-223fx62r" hidden><p class="course-search-start-heading astro-223fx62r">Where to start</p><ul class="astro-223fx62r"><li class="astro-223fx62r"><a href="/en/course/introduction/why-stream-processing/" class="astro-223fx62r"><span class="course-search-start-section astro-223fx62r">Introduction</span><span class="course-search-start-title astro-223fx62r">Why stream processing?</span></a></li><li class="astro-223fx62r"><a href="/en/course/fundamentals/what-does-an-event-tell-us/" class="astro-223fx62r"><span class="course-search-start-section astro-223fx62r">Fundamentals</span><span class="course-search-start-title astro-223fx62r">What does an event tell us?</span></a></li><li class="astro-223fx62r"><a href="/en/course/time/event-time-and-processing-time/" class="astro-223fx62r"><span class="course-search-start-section astro-223fx62r">Time and windows</span><span class="course-search-start-title astro-223fx62r">Event time and processing time</span></a></li><li class="astro-223fx62r"><a href="/en/course/reliability/when-an-event-arrives-twice-or-never/" class="astro-223fx62r"><span class="course-search-start-section astro-223fx62r">Duplicates, loss, and recovery</span><span class="course-search-start-title astro-223fx62r">When an event arrives twice or never</span></a></li><li class="astro-223fx62r"><a href="/en/course/distribution/a-queue-or-a-log/" class="astro-223fx62r"><span class="course-search-start-section astro-223fx62r">Distributed processing and the log</span><span class="course-search-start-title astro-223fx62r">A queue or a log?</span></a></li></ul></div><script type="module">var e=document.querySelector(`.course-search-start`),t=document.querySelector(`site-search .search-container`);e&&t&&(t.append(e),e.hidden=!1);</script></div><div class="sl-hidden md:sl-flex print:hidden right-group astro-by6fddyj"><div class="sl-flex social-icons astro-by6fddyj"></div><course-theme-toggle class="astro-e52pfzt5"><button type="button" class="course-theme-toggle astro-e52pfzt5" aria-label="Toggle theme" title="Toggle theme"><svg aria-hidden="true" class="course-theme-icon course-theme-moon astro-e52pfzt5 astro-hkc32dio" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M21.64 13a1 1 0 0 0-1.05-.14 8.049 8.049 0 0 1-3.37.73 8.15 8.15 0 0 1-8.14-8.1 8.59 8.59 0 0 1 .25-2A1 1 0 0 0 8 2.36a10.14 10.14 0 1 0 14 11.69 1 1 0 0 0-.36-1.05Zm-9.5 6.69A8.14 8.14 0 0 1 7.08 5.22v.27a10.15 10.15 0 0 0 10.14 10.14 9.784 9.784 0 0 0 2.1-.22 8.11 8.11 0 0 1-7.18 4.32v-.04Z"/></svg><svg aria-hidden="true" class="course-theme-icon course-theme-sun astro-e52pfzt5 astro-hkc32dio" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M5 12a1 1 0 0 0-1-1H3a1 1 0 0 0 0 2h1a1 1 0 0 0 1-1Zm.64 5-.71.71a1 1 0 0 0 0 1.41 1 1 0 0 0 1.41 0l.71-.71A1 1 0 0 0 5.64 17ZM12 5a1 1 0 0 0 1-1V3a1 1 0 0 0-2 0v1a1 1 0 0 0 1 1Zm5.66 2.34a1 1 0 0 0 .7-.29l.71-.71a1 1 0 1 0-1.41-1.41l-.66.71a1 1 0 0 0 0 1.41 1 1 0 0 0 .66.29Zm-12-.29a1 1 0 0 0 1.41 0 1 1 0 0 0 0-1.41l-.71-.71a1.004 1.004 0 1 0-1.43 1.41l.73.71ZM21 11h-1a1 1 0 0 0 0 2h1a1 1 0 0 0 0-2Zm-2.64 6A1 1 0 0 0 17 18.36l.71.71a1 1 0 0 0 1.41 0 1 1 0 0 0 0-1.41l-.76-.66ZM12 6.5a5.5 5.5 0 1 0 5.5 5.5A5.51 5.51 0 0 0 12 6.5Zm0 9a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7Zm0 3.5a1 1 0 0 0-1 1v1a1 1 0 0 0 2 0v-1a1 1 0 0 0-1-1Z"/></svg></button></course-theme-toggle><script type="module">var e=`starlight-theme`,t=()=>matchMedia(`(prefers-color-scheme: light)`).matches?`light`:`dark`,n=class extends HTMLElement{constructor(){super(),this.querySelector(`button`)?.addEventListener(`click`,()=>{let t=document.documentElement.dataset.theme===`light`?`dark`:`light`;document.documentElement.dataset.theme=t;try{localStorage.setItem(e,t)}catch{}})}};customElements.define(`course-theme-toggle`,n),matchMedia(`(prefers-color-scheme: light)`).addEventListener(`change`,()=>{let n=null;try{n=localStorage.getItem(e)}catch{}n!==`light`&&n!==`dark`&&(document.documentElement.dataset.theme=t())});</script><course-language-switch class="course-language-switch astro-e5tdbfla"><button type="button" class="course-language-button astro-e5tdbfla" aria-haspopup="true" aria-expanded="false" aria-label="Choose language" title="Choose language">EN</button><ul class="course-language-menu astro-e5tdbfla" hidden><li class="astro-e5tdbfla"><a href="/ru/course/distribution/consumer-groups-and-replay-in-kafka/" hreflang="ru" lang="ru" class="astro-e5tdbfla">Русский</a></li></ul></course-language-switch><script type="module">var e=class extends HTMLElement{constructor(){super();let e=this.querySelector(`button`),t=this.querySelector(`ul`);if(!e||!t)return;let n=n=>{t.hidden=!n,e.setAttribute(`aria-expanded`,String(n))};e.addEventListener(`click`,()=>n(t.hidden)),document.addEventListener(`click`,e=>{this.contains(e.target)||n(!1)}),this.addEventListener(`keydown`,t=>{t.key===`Escape`&&(n(!1),e.focus())})}};customElements.define(`course-language-switch`,e);</script></div></div></header><nav class="sidebar print:hidden astro-jvulkizc" aria-label="Main"><button popovertarget="starlight__sidebar" class="sl-menu-button sl-flex lg:sl-hidden print:hidden astro-typaf3vk"><svg aria-hidden="true" class="open-menu astro-typaf3vk astro-hkc32dio" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M3 8h18a1 1 0 1 0 0-2H3a1 1 0 0 0 0 2Zm18 8H3a1 1 0 0 0 0 2h18a1 1 0 0 0 0-2Zm0-5H3a1 1 0 0 0 0 2h18a1 1 0 0 0 0-2Z"/></svg><svg aria-hidden="true" class="close-menu astro-typaf3vk astro-hkc32dio" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="m13.41 12 6.3-6.29a1.004 1.004 0 1 0-1.42-1.42L12 10.59l-6.29-6.3a1.004 1.004 0 0 0-1.42 1.42l6.3 6.29-6.3 6.29a1 1 0 0 0 0 1.42.998.998 0 0 0 1.42 0l6.29-6.3 6.29 6.3a.999.999 0 0 0 1.42 0 1 1 0 0 0 0-1.42L13.41 12Z"/></svg><span class="sr-only astro-typaf3vk">Menu</span></button><script type="module">var e=class extends HTMLElement{constructor(){super();let e=matchMedia(`(min-width: 72em)`),t=()=>{this.popover=e.matches?null:`auto`};t(),e.addEventListener(`change`,()=>t()),this.addEventListener(`toggle`,({newState:e})=>this.trapFocus(e===`open`))}trapFocus(e){document.querySelectorAll(`.main-frame, .sl-skip-link`).forEach(t=>{t.toggleAttribute(`inert`,e)})}};customElements.define(`sl-sidebar-pane`,e);</script><sl-sidebar-pane popover id="starlight__sidebar" class="sidebar-pane astro-jvulkizc"><div class="sidebar-content sl-flex astro-jvulkizc"><div class="course-sidebar-brand astro-6vmd22lb"><a href="/en" class="site-title sl-flex astro-6rvad3va"><img class="astro-6rvad3va" alt src="/_astro/logo.DKQKHWKq.png" width="192" height="192"><span class="astro-6rvad3va" translate="no">Stream Processing</span></a></div><sl-sidebar-state-persist data-hash="0j4c1tq" class="astro-ipdry5cl"><script aria-hidden="true">
+		(() => {
+			try {
+				if (!matchMedia('(min-width: 50em)').matches) return;
+				/** @type {HTMLElement | null} */
+				const target = document.querySelector('sl-sidebar-state-persist');
+				const state = JSON.parse(sessionStorage.getItem('sl-sidebar-state') || '0');
+				if (!target || !state || target.dataset.hash !== state.hash) return;
+				window._starlightScrollRestore = state.scroll;
+				customElements.define(
+					'sl-sidebar-restore',
+					class SidebarRestore extends HTMLElement {
+						connectedCallback() {
+							try {
+								const idx = parseInt(this.dataset.index || '');
+								const details = this.closest('details');
+								if (details && typeof state.open[idx] === 'boolean') details.open = state.open[idx];
+							} catch {}
+						}
+					}
+				);
+			} catch {}
+		})();
+	</script><ul class="top-level astro-rmhv4bp6"><li class="astro-rmhv4bp6"><details open class="astro-rmhv4bp6"><summary class="astro-rmhv4bp6"><span class="group-label astro-rmhv4bp6"><span class="large astro-rmhv4bp6">Introduction</span></span><svg aria-hidden="true" class="caret astro-rmhv4bp6 astro-hkc32dio" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.25rem;"><path d="m14.83 11.29-4.24-4.24a1 1 0 1 0-1.42 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41 1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.24-4.24a1.002 1.002 0 0 0 0-1.42Z"/></svg></summary><sl-sidebar-restore data-index="0"></sl-sidebar-restore><ul class="astro-rmhv4bp6"><li class="astro-rmhv4bp6"><a href="/en/course/introduction/why-stream-processing/" class="astro-rmhv4bp6"><span class="astro-rmhv4bp6">Why stream processing?</span></a></li></ul></details></li><li class="astro-rmhv4bp6"><details open class="astro-rmhv4bp6"><summary class="astro-rmhv4bp6"><span class="group-label astro-rmhv4bp6"><span class="large astro-rmhv4bp6">Fundamentals</span></span><svg aria-hidden="true" class="caret astro-rmhv4bp6 astro-hkc32dio" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.25rem;"><path d="m14.83 11.29-4.24-4.24a1 1 0 1 0-1.42 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41 1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.24-4.24a1.002 1.002 0 0 0 0-1.42Z"/></svg></summary><sl-sidebar-restore data-index="1"></sl-sidebar-restore><ul class="astro-rmhv4bp6"><li class="astro-rmhv4bp6"><a href="/en/course/fundamentals/what-does-an-event-tell-us/" class="astro-rmhv4bp6"><span class="astro-rmhv4bp6">What does an event tell us?</span></a></li><li class="astro-rmhv4bp6"><a href="/en/course/fundamentals/from-events-to-results/" class="astro-rmhv4bp6"><span class="astro-rmhv4bp6">From events to results</span></a></li><li class="astro-rmhv4bp6"><a href="/en/course/fundamentals/when-one-event-is-not-enough/" class="astro-rmhv4bp6"><span class="astro-rmhv4bp6">When one event is not enough</span></a></li><li class="astro-rmhv4bp6"><a href="/en/course/fundamentals/grouping-events-by-key/" class="astro-rmhv4bp6"><span class="astro-rmhv4bp6">Grouping events by key</span></a></li></ul></details></li><li class="astro-rmhv4bp6"><details open class="astro-rmhv4bp6"><summary class="astro-rmhv4bp6"><span class="group-label astro-rmhv4bp6"><span class="large astro-rmhv4bp6">Time and windows</span></span><svg aria-hidden="true" class="caret astro-rmhv4bp6 astro-hkc32dio" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.25rem;"><path d="m14.83 11.29-4.24-4.24a1 1 0 1 0-1.42 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41 1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.24-4.24a1.002 1.002 0 0 0 0-1.42Z"/></svg></summary><sl-sidebar-restore data-index="2"></sl-sidebar-restore><ul class="astro-rmhv4bp6"><li class="astro-rmhv4bp6"><a href="/en/course/time/event-time-and-processing-time/" class="astro-rmhv4bp6"><span class="astro-rmhv4bp6">Event time and processing time</span></a></li><li class="astro-rmhv4bp6"><a href="/en/course/time/putting-events-into-time-windows/" class="astro-rmhv4bp6"><span class="astro-rmhv4bp6">Putting events into time windows</span></a></li><li class="astro-rmhv4bp6"><a href="/en/course/time/sliding-and-session-windows/" class="astro-rmhv4bp6"><span class="astro-rmhv4bp6">Sliding and session windows</span></a></li><li class="astro-rmhv4bp6"><a href="/en/course/time/how-far-has-the-stream-progressed/" class="astro-rmhv4bp6"><span class="astro-rmhv4bp6">How far has the stream progressed?</span></a></li><li class="astro-rmhv4bp6"><a href="/en/course/time/when-is-a-window-result-ready/" class="astro-rmhv4bp6"><span class="astro-rmhv4bp6">When is a window result ready?</span></a></li></ul></details></li><li class="astro-rmhv4bp6"><details open class="astro-rmhv4bp6"><summary class="astro-rmhv4bp6"><span class="group-label astro-rmhv4bp6"><span class="large astro-rmhv4bp6">Duplicates, loss, and recovery</span></span><svg aria-hidden="true" class="caret astro-rmhv4bp6 astro-hkc32dio" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.25rem;"><path d="m14.83 11.29-4.24-4.24a1 1 0 1 0-1.42 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41 1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.24-4.24a1.002 1.002 0 0 0 0-1.42Z"/></svg></summary><sl-sidebar-restore data-index="3"></sl-sidebar-restore><ul class="astro-rmhv4bp6"><li class="astro-rmhv4bp6"><a href="/en/course/reliability/when-an-event-arrives-twice-or-never/" class="astro-rmhv4bp6"><span class="astro-rmhv4bp6">When an event arrives twice or never</span></a></li><li class="astro-rmhv4bp6"><a href="/en/course/reliability/what-must-survive-a-restart/" class="astro-rmhv4bp6"><span class="astro-rmhv4bp6">What must survive a restart?</span></a></li><li class="astro-rmhv4bp6"><a href="/en/course/reliability/recovering-a-consistent-computation/" class="astro-rmhv4bp6"><span class="astro-rmhv4bp6">Recovering a consistent computation</span></a></li><li class="astro-rmhv4bp6"><a href="/en/course/reliability/one-result-one-external-effect/" class="astro-rmhv4bp6"><span class="astro-rmhv4bp6">One result, one external effect?</span></a></li></ul></details></li><li class="astro-rmhv4bp6"><details open class="astro-rmhv4bp6"><summary class="astro-rmhv4bp6"><span class="group-label astro-rmhv4bp6"><span class="large astro-rmhv4bp6">Distributed processing and the log</span></span><svg aria-hidden="true" class="caret astro-rmhv4bp6 astro-hkc32dio" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.25rem;"><path d="m14.83 11.29-4.24-4.24a1 1 0 1 0-1.42 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41 1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.24-4.24a1.002 1.002 0 0 0 0-1.42Z"/></svg></summary><sl-sidebar-restore data-index="4"></sl-sidebar-restore><ul class="astro-rmhv4bp6"><li class="astro-rmhv4bp6"><a href="/en/course/distribution/a-queue-or-a-log/" class="astro-rmhv4bp6"><span class="astro-rmhv4bp6">A queue or a log?</span></a></li><li class="astro-rmhv4bp6"><a href="/en/course/distribution/splitting-a-log-into-partitions/" class="astro-rmhv4bp6"><span class="astro-rmhv4bp6">Splitting a log into partitions</span></a></li><li class="astro-rmhv4bp6"><a href="/en/course/distribution/topics-partitions-and-offsets-in-kafka/" class="astro-rmhv4bp6"><span class="astro-rmhv4bp6">Topics, partitions, and offsets in Kafka</span></a></li><li class="astro-rmhv4bp6"><a href="/en/course/distribution/consumer-groups-and-replay-in-kafka/" aria-current="page" class="astro-rmhv4bp6"><span class="astro-rmhv4bp6">Consumer groups and replay in Kafka</span></a></li><li class="astro-rmhv4bp6"><a href="/en/course/distribution/how-long-does-kafka-keep-history/" class="astro-rmhv4bp6"><span class="astro-rmhv4bp6">How long does Kafka keep history?</span></a></li><li class="astro-rmhv4bp6"><a href="/en/course/distribution/capturing-changes-from-a-database/" class="astro-rmhv4bp6"><span class="astro-rmhv4bp6">Capturing changes from a database</span></a></li></ul></details></li></ul><script aria-hidden="true">
+		(() => {
+			const scroller = document.getElementById('starlight__sidebar');
+			if (!window._starlightScrollRestore || !scroller) return;
+			scroller.scrollTop = window._starlightScrollRestore;
+			delete window._starlightScrollRestore;
+		})();
+	</script></sl-sidebar-state-persist><div class="md:sl-hidden"><div class="mobile-preferences sl-flex astro-p4azlveh"><div class="social-icons astro-p4azlveh"></div><course-theme-toggle class="astro-e52pfzt5"><button type="button" class="course-theme-toggle astro-e52pfzt5" aria-label="Toggle theme" title="Toggle theme"><svg aria-hidden="true" class="course-theme-icon course-theme-moon astro-e52pfzt5 astro-hkc32dio" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M21.64 13a1 1 0 0 0-1.05-.14 8.049 8.049 0 0 1-3.37.73 8.15 8.15 0 0 1-8.14-8.1 8.59 8.59 0 0 1 .25-2A1 1 0 0 0 8 2.36a10.14 10.14 0 1 0 14 11.69 1 1 0 0 0-.36-1.05Zm-9.5 6.69A8.14 8.14 0 0 1 7.08 5.22v.27a10.15 10.15 0 0 0 10.14 10.14 9.784 9.784 0 0 0 2.1-.22 8.11 8.11 0 0 1-7.18 4.32v-.04Z"/></svg><svg aria-hidden="true" class="course-theme-icon course-theme-sun astro-e52pfzt5 astro-hkc32dio" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;"><path d="M5 12a1 1 0 0 0-1-1H3a1 1 0 0 0 0 2h1a1 1 0 0 0 1-1Zm.64 5-.71.71a1 1 0 0 0 0 1.41 1 1 0 0 0 1.41 0l.71-.71A1 1 0 0 0 5.64 17ZM12 5a1 1 0 0 0 1-1V3a1 1 0 0 0-2 0v1a1 1 0 0 0 1 1Zm5.66 2.34a1 1 0 0 0 .7-.29l.71-.71a1 1 0 1 0-1.41-1.41l-.66.71a1 1 0 0 0 0 1.41 1 1 0 0 0 .66.29Zm-12-.29a1 1 0 0 0 1.41 0 1 1 0 0 0 0-1.41l-.71-.71a1.004 1.004 0 1 0-1.43 1.41l.73.71ZM21 11h-1a1 1 0 0 0 0 2h1a1 1 0 0 0 0-2Zm-2.64 6A1 1 0 0 0 17 18.36l.71.71a1 1 0 0 0 1.41 0 1 1 0 0 0 0-1.41l-.76-.66ZM12 6.5a5.5 5.5 0 1 0 5.5 5.5A5.51 5.51 0 0 0 12 6.5Zm0 9a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7Zm0 3.5a1 1 0 0 0-1 1v1a1 1 0 0 0 2 0v-1a1 1 0 0 0-1-1Z"/></svg></button></course-theme-toggle><course-language-switch class="course-language-switch astro-e5tdbfla"><button type="button" class="course-language-button astro-e5tdbfla" aria-haspopup="true" aria-expanded="false" aria-label="Choose language" title="Choose language">EN</button><ul class="course-language-menu astro-e5tdbfla" hidden><li class="astro-e5tdbfla"><a href="/ru/course/distribution/consumer-groups-and-replay-in-kafka/" hreflang="ru" lang="ru" class="astro-e5tdbfla">Русский</a></li></ul></course-language-switch></div></div></div></sl-sidebar-pane></nav><div class="main-frame astro-jvulkizc"><script type="module">var e=document.getElementById(`starlight__sidebar`),t=e?.querySelector(`sl-sidebar-state-persist`),n=`sl-sidebar-state`,r=()=>{let r=[],i=t?.dataset.hash||``;try{let e=sessionStorage.getItem(n),t=JSON.parse(e||`{}`);Array.isArray(t.open)&&t.hash===i&&(r=t.open)}catch{}return{hash:i,open:r,scroll:e?.scrollTop||0}},i=e=>{try{sessionStorage.setItem(n,JSON.stringify(e))}catch{}},a=()=>i(r()),o=(e,t)=>{let n=r();n.open[t]=e,i(n)};t?.addEventListener(`click`,e=>{if(!(e.target instanceof Element))return;let t=e.target.closest(`summary`)?.closest(`details`);if(!t)return;let n=t.querySelector(`sl-sidebar-restore`),r=parseInt(n?.dataset.index||``);isNaN(r)||o(!t.open,r)}),addEventListener(`visibilitychange`,()=>{document.visibilityState===`hidden`&&a()});</script><div class="md:sl-flex astro-z2restcr"><aside class="right-sidebar-container print:hidden astro-z2restcr"><div class="right-sidebar astro-z2restcr"><div class="md:sl-hidden astro-6c243z32"><mobile-starlight-toc data-min-h="2" data-max-h="3" class="astro-66cqc7ze"><nav aria-labelledby="starlight__on-this-page--mobile" class="astro-66cqc7ze"><details id="starlight__mobile-toc" class="astro-66cqc7ze"><summary id="starlight__on-this-page--mobile" class="sl-flex astro-66cqc7ze"><span class="toggle sl-flex astro-66cqc7ze">On this page<svg aria-hidden="true" class="caret astro-66cqc7ze astro-hkc32dio" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1rem;"><path d="m14.83 11.29-4.24-4.24a1 1 0 1 0-1.42 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41 1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.24-4.24a1.002 1.002 0 0 0 0-1.42Z"/></svg></span><span class="display-current astro-66cqc7ze"></span></summary><div class="dropdown astro-66cqc7ze"><ul class="isMobile astro-jugkfwgx" style="--depth: 0;"><li style="--depth: 0;" class="astro-jugkfwgx"><a href="#_top" style="--depth: 0;" class="astro-jugkfwgx"><span style="--depth: 0;" class="astro-jugkfwgx">Overview</span></a></li><li style="--depth: 0;" class="astro-jugkfwgx"><a href="#a-group-shares-the-partitions" style="--depth: 0;" class="astro-jugkfwgx"><span style="--depth: 0;" class="astro-jugkfwgx">A group shares the partitions</span></a></li><li style="--depth: 0;" class="astro-jugkfwgx"><a href="#when-a-consumer-leaves-or-joins" style="--depth: 0;" class="astro-jugkfwgx"><span style="--depth: 0;" class="astro-jugkfwgx">When a consumer leaves or joins</span></a></li><li style="--depth: 0;" class="astro-jugkfwgx"><a href="#committed-offsets" style="--depth: 0;" class="astro-jugkfwgx"><span style="--depth: 0;" class="astro-jugkfwgx">Committed offsets</span></a></li><li style="--depth: 0;" class="astro-jugkfwgx"><a href="#an-offset-without-the-state" style="--depth: 0;" class="astro-jugkfwgx"><span style="--depth: 0;" class="astro-jugkfwgx">An offset without the state</span></a></li><li style="--depth: 0;" class="astro-jugkfwgx"><a href="#independent-readers" style="--depth: 0;" class="astro-jugkfwgx"><span style="--depth: 0;" class="astro-jugkfwgx">Independent readers</span></a></li><li style="--depth: 0;" class="astro-jugkfwgx"><a href="#replay-on-purpose" style="--depth: 0;" class="astro-jugkfwgx"><span style="--depth: 0;" class="astro-jugkfwgx">Replay on purpose</span></a></li><li style="--depth: 0;" class="astro-jugkfwgx"><a href="#what-to-remember" style="--depth: 0;" class="astro-jugkfwgx"><span style="--depth: 0;" class="astro-jugkfwgx">What to remember</span></a></li><li style="--depth: 0;" class="astro-jugkfwgx"><a href="#references" style="--depth: 0;" class="astro-jugkfwgx"><span style="--depth: 0;" class="astro-jugkfwgx">References</span></a></li><li style="--depth: 0;" class="astro-jugkfwgx"><a href="#further-reading" style="--depth: 0;" class="astro-jugkfwgx"><span style="--depth: 0;" class="astro-jugkfwgx">Further reading</span></a></li></ul></div></details></nav></mobile-starlight-toc><script type="module" src="/_astro/MobileTableOfContents.astro_astro_type_script_index_0_lang.C3fM4Kra.js"></script></div><div class="right-sidebar-panel sl-hidden md:sl-block astro-6c243z32"><div class="sl-container astro-6c243z32"><starlight-toc data-min-h="2" data-max-h="3"><nav aria-labelledby="starlight__on-this-page"><h2 id="starlight__on-this-page">On this page</h2><ul class="astro-jugkfwgx" style="--depth: 0;"><li style="--depth: 0;" class="astro-jugkfwgx"><a href="#_top" style="--depth: 0;" class="astro-jugkfwgx"><span style="--depth: 0;" class="astro-jugkfwgx">Overview</span></a></li><li style="--depth: 0;" class="astro-jugkfwgx"><a href="#a-group-shares-the-partitions" style="--depth: 0;" class="astro-jugkfwgx"><span style="--depth: 0;" class="astro-jugkfwgx">A group shares the partitions</span></a></li><li style="--depth: 0;" class="astro-jugkfwgx"><a href="#when-a-consumer-leaves-or-joins" style="--depth: 0;" class="astro-jugkfwgx"><span style="--depth: 0;" class="astro-jugkfwgx">When a consumer leaves or joins</span></a></li><li style="--depth: 0;" class="astro-jugkfwgx"><a href="#committed-offsets" style="--depth: 0;" class="astro-jugkfwgx"><span style="--depth: 0;" class="astro-jugkfwgx">Committed offsets</span></a></li><li style="--depth: 0;" class="astro-jugkfwgx"><a href="#an-offset-without-the-state" style="--depth: 0;" class="astro-jugkfwgx"><span style="--depth: 0;" class="astro-jugkfwgx">An offset without the state</span></a></li><li style="--depth: 0;" class="astro-jugkfwgx"><a href="#independent-readers" style="--depth: 0;" class="astro-jugkfwgx"><span style="--depth: 0;" class="astro-jugkfwgx">Independent readers</span></a></li><li style="--depth: 0;" class="astro-jugkfwgx"><a href="#replay-on-purpose" style="--depth: 0;" class="astro-jugkfwgx"><span style="--depth: 0;" class="astro-jugkfwgx">Replay on purpose</span></a></li><li style="--depth: 0;" class="astro-jugkfwgx"><a href="#what-to-remember" style="--depth: 0;" class="astro-jugkfwgx"><span style="--depth: 0;" class="astro-jugkfwgx">What to remember</span></a></li><li style="--depth: 0;" class="astro-jugkfwgx"><a href="#references" style="--depth: 0;" class="astro-jugkfwgx"><span style="--depth: 0;" class="astro-jugkfwgx">References</span></a></li><li style="--depth: 0;" class="astro-jugkfwgx"><a href="#further-reading" style="--depth: 0;" class="astro-jugkfwgx"><span style="--depth: 0;" class="astro-jugkfwgx">Further reading</span></a></li></ul></nav></starlight-toc><script type="module" src="/_astro/TableOfContents.astro_astro_type_script_index_0_lang.BpJaGz7G.js"></script></div></div><script type="module">async function e(){let e=document.querySelector(`starlight-toc`);if(!e)return;let t=[...e.querySelectorAll(`a[href^="#"]`)].map(e=>document.getElementById(decodeURIComponent(e.hash.slice(1)))).filter(e=>e!==null);if(t.length<2)return;await document.fonts.ready;let n=()=>{let e=parseFloat(getComputedStyle(document.documentElement).scrollPaddingTop)||0,n=t[0];for(let r of t){let t=parseFloat(getComputedStyle(r).scrollMarginTop)||0;if(r.getBoundingClientRect().top>e+t+2)break;n=r}let r=new URL(window.location.href);r.hash=n.id===`_top`?``:n.id,r.href!==window.location.href&&history.replaceState(history.state,``,r)},r;requestAnimationFrame(()=>{window.addEventListener(`scroll`,()=>{clearTimeout(r),r=setTimeout(n,150)},{passive:!0})})}e();</script></div></aside><div class="main-pane astro-z2restcr"><main data-pagefind-body class="astro-g5ptsecz" lang="en" dir="ltr"><div class="content-panel astro-a7po4psb"><div class="sl-container astro-a7po4psb"><div class="article-heading astro-rpssgujp"><p class="article-section astro-rpssgujp">Distributed processing and the log</p><h1 id="_top" class="astro-rpssgujp">Consumer groups and replay in Kafka</h1><p class="article-description astro-rpssgujp">How Kafka shares partitions among the consumers of a group and moves them when one fails, why a committed offset needs matching state, and how independent groups read the same history and read it again.</p><details class="course-ai astro-rpssgujp"><summary class="astro-rpssgujp">Study with an AI assistant 🤖</summary><div class="course-ai-body astro-rpssgujp"><p class="course-ai-hint astro-g73rzpxe">Copy the prompt and paste it into a chat with an AI assistant.</p><div class="expressive-code astro-g73rzpxe"><link rel="stylesheet" href="/_astro/ec.w36nc.css"><script type="module" src="/_astro/ec.0vx5m.js"></script><figure class="frame not-content"><figcaption class="header"></figcaption><pre data-language="text" class="wrap" style="--ecMaxLine:271ch"><code><div class="ec-line"><div class="code"><span style="--0:#d6deeb;--1:#403f53">You are a tutor for the course "Stream Processing".</span></div></div><div class="ec-line"><div class="code"><span style="--0:#d6deeb;--1:#403f53">Topic: "Consumer groups and replay in Kafka"</span></div></div><div class="ec-line"><div class="code"><span style="--0:#d6deeb;--1:#403f53">In short: How Kafka shares partitions among the consumers of a group and moves them when one fails, why a committed offset needs matching state, and how independent groups read the same history and read it again.</span></div></div><div class="ec-line"><div class="code"><span style="--0:#d6deeb;--1:#403f53">Article text in Markdown: https://stream-processing-systems.github.io/en/course/distribution/consumer-groups-and-replay-in-kafka.md</span></div></div><div class="ec-line"><div class="code"><span style="--0:#d6deeb;--1:#403f53">Base your explanations on this article. First ask how I want to study: a short summary, a step-by-step walkthrough, or a deep dive with questions that check my understanding. Use the article's example and terms. If you add anything the article does not say, point it out.</span></div></div></code></pre><div class="copy"><div aria-live="polite"></div><button title="Copy to clipboard" data-copied="Copied!" data-code="You are a tutor for the course &#x22;Stream Processing&#x22;.Topic: &#x22;Consumer groups and replay in Kafka&#x22;In short: How Kafka shares partitions among the consumers of a group and moves them when one fails, why a committed offset needs matching state, and how independent groups read the same history and read it again.Article text in Markdown: https://stream-processing-systems.github.io/en/course/distribution/consumer-groups-and-replay-in-kafka.mdBase your explanations on this article. First ask how I want to study: a short summary, a step-by-step walkthrough, or a deep dive with questions that check my understanding. Use the article&#x27;s example and terms. If you add anything the article does not say, point it out."><div></div></button></div></figure></div></div></details></div></div></div><div class="content-panel astro-a7po4psb"><div class="sl-container astro-a7po4psb"><div class="sl-markdown-content" data-course-widgets data-widget-labels="{&quot;close&quot;:&quot;Close&quot;,&quot;definition&quot;:&quot;Definition:&quot;,&quot;diagram&quot;:&quot;Diagram viewer&quot;,&quot;zoomIn&quot;:&quot;Zoom in&quot;,&quot;zoomOut&quot;:&quot;Zoom out&quot;,&quot;fit&quot;:&quot;Fit&quot;,&quot;original&quot;:&quot;Open original&quot;,&quot;zoom&quot;:&quot;Zoom&quot;,&quot;diagramHint&quot;:&quot;Use + / − to zoom. Scroll to explore the diagram.&quot;,&quot;definitions&quot;:&quot;Definitions&quot;}"><p>Three processors read the <a href="/en/course/distribution/topics-partitions-and-offsets-in-kafka/" data-course-link=""><code dir="auto">usage</code> topic</a>
+of our AI assistant: A reads partition 0, B reads 1, and C reads 2. At 11:00 on
+February 2, the machine of processor A fails. Partition 0, with the records of
+<code dir="auto">acme</code> and <code dir="auto">delta</code>, has no reader, and the usage pages of both accounts stop
+changing.</p>
+<p>Kafka can notice this, hand partition 0 to another processor, and tell it
+where A stopped. Meanwhile, the finance team wants to read the same topic for
+its own check, and next week someone may want to count all of February again.
+How does Kafka decide who reads which partition, and what does a processor
+need, besides a position, to continue correctly?</p>
+<div class="sl-heading-wrapper level-h2"><h2 id="a-group-shares-the-partitions">A group shares the partitions</h2><a class="sl-anchor-link" href="#a-group-shares-the-partitions"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 1 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 0 0-1.42-1.42m8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 1 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 0 0 0 1.42 1 1 0 0 0 1.42 0l3.88-3.89a4.49 4.49 0 0 0 0-6.33M8.83 15.17a1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.92-4.92a1 1 0 1 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42"></path></svg></span><span class="sr-only" data-pagefind-ignore="">Section titled “A group shares the partitions”</span></a></div>
+<p>Consumers that share the work of reading a topic form a <strong>consumer group</strong>.
+Each consumer names its group when it connects; ours is <code dir="auto">usage-totals</code>. Kafka
+assigns each partition of the topic to exactly one consumer in the group.<sup><a href="https://kafka.apache.org/44/javadoc/org/apache/kafka/clients/consumer/KafkaConsumer.html" id="user-content-fnref-1" data-footnote-ref="" title="Apache Kafka 4.4: KafkaConsumer, Consumer Groups and Topic Subscriptions; Offsets and Consumer Position; Storing Offsets Outside Kafka" target="_blank" rel="noopener noreferrer">1</a></sup>
+Together, the consumers of a group read every partition once, as one reader
+divided into parts:</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Consumer in <code dir="auto">usage-totals</code></th><th>Partition</th></tr></thead><tbody><tr><td>A</td><td>0</td></tr><tr><td>B</td><td>1</td></tr><tr><td>C</td><td>2</td></tr></tbody></table>
+<p>A fourth consumer in this group would get no partition and wait, because one
+partition goes to one consumer of the group. This is the
+<a href="/en/course/distribution/splitting-a-log-into-partitions/" data-course-link="">limit of partitions</a> in Kafka’s terms.</p>
+<p>Kafka also has another way to read. Since version 4.2, it offers share groups,
+in which several consumers read the same partition and acknowledge each record
+separately.<sup><a href="https://kafka.apache.org/blog/2026/02/17/apache-kafka-4.2.0-release-announcement/" id="user-content-fnref-2" data-footnote-ref="" title="Apache Kafka 4.2.0 Release Announcement" target="_blank" rel="noopener noreferrer">2</a></sup> That is the <a href="/en/course/distribution/a-queue-or-a-log/" data-course-link="">queue</a> way of reading, on top
+of a log. It suits independent tasks; our totals need ordinary consumer
+groups, where all records of one key reach one consumer.</p>
+<div class="sl-heading-wrapper level-h2"><h2 id="when-a-consumer-leaves-or-joins">When a consumer leaves or joins</h2><a class="sl-anchor-link" href="#when-a-consumer-leaves-or-joins"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 1 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 0 0-1.42-1.42m8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 1 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 0 0 0 1.42 1 1 0 0 0 1.42 0l3.88-3.89a4.49 4.49 0 0 0 0-6.33M8.83 15.17a1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.92-4.92a1 1 0 1 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42"></path></svg></span><span class="sr-only" data-pagefind-ignore="">Section titled “When a consumer leaves or joins”</span></a></div>
+<p>A consumer in a group regularly sends a signal that it is alive. If the
+signals stop for longer than a set timeout, Kafka considers the consumer dead
+and gives its partitions to the other consumers of the group. When a new
+consumer joins, Kafka moves some partitions to it.<sup><a href="https://kafka.apache.org/44/javadoc/org/apache/kafka/clients/consumer/KafkaConsumer.html" id="user-content-fnref-1-2" data-footnote-ref="" title="Apache Kafka 4.4: KafkaConsumer, Consumer Groups and Topic Subscriptions; Offsets and Consumer Position; Storing Offsets Outside Kafka" target="_blank" rel="noopener noreferrer">1</a></sup> Moving partitions among
+the consumers of a group is called a <strong>rebalance</strong>.</p>
+<p>With the default settings of Kafka’s Java client, a consumer is considered dead
+after 45 seconds without signals.<sup><a href="https://kafka.apache.org/44/configuration/consumer-configs/" id="user-content-fnref-3" data-footnote-ref="" title="Apache Kafka 4.4: Consumer Configs" target="_blank" rel="noopener noreferrer">3</a></sup> So at about 11:00:45, partition 0 goes
+to B, say, and B now reads partitions 0 and 1. For those 45 seconds, the usage
+pages of <code dir="auto">acme</code> and <code dir="auto">delta</code> stand still, and then they catch up. A consumer
+also loses its partitions if it is alive but slow: if it does not ask for new
+records for five minutes, by default, it leaves the group.<sup><a href="https://kafka.apache.org/44/configuration/consumer-configs/" id="user-content-fnref-3-2" data-footnote-ref="" title="Apache Kafka 4.4: Consumer Configs" target="_blank" rel="noopener noreferrer">3</a></sup> This is the
+<a href="/en/course/distribution/splitting-a-log-into-partitions/#moving-a-partition-to-another-processor" data-course-link="">slow processor that could keep running after losing its partition</a>:
+once another consumer owns the partition, the old one must stop sending
+results for it.</p>
+<figure class="course-diagram">
+<svg viewBox="0 0 384 280" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="consumer-group-rebalance-title consumer-group-rebalance-desc">
+<title id="consumer-group-rebalance-title">When a consumer leaves or joins</title>
+<desc id="consumer-group-rebalance-desc">A fails at 11:00; until the timeout partition 0 has no reader, then B takes it while continuing to read partition 1 and C keeps partition 2.</desc>
+  <style>
+    .cd-paper { fill: var(--sl-color-bg, #ffffff); }
+    .cd-name { fill: var(--sl-color-white, #18181b); font: 600 14px var(--sl-font, system-ui, sans-serif); }
+    .cd-sub { fill: var(--sl-color-gray-3, #52525b); font: 12px var(--sl-font, system-ui, sans-serif); }
+    .cd-code { fill: var(--sl-color-gray-3, #52525b); font: 12px var(--sl-font-mono, ui-monospace, monospace); }
+    .cd-label { fill: var(--sl-color-gray-3, #52525b); font: 11px var(--sl-font-mono, ui-monospace, monospace); letter-spacing: 0.06em; }
+    .cd-zone-label { fill: var(--sl-color-text-accent, #6366f1); font: 600 11px var(--sl-font-mono, ui-monospace, monospace); letter-spacing: 0.14em; }
+    .cd-arrow { stroke: var(--sl-color-gray-3, #52525b); stroke-width: 1.2; }
+    .cd-arrow-head { fill: var(--sl-color-gray-3, #52525b); }
+    .cd-zone { fill: var(--sl-color-accent-low, #eef0fe); stroke: var(--sl-color-accent, #6366f1); stroke-width: 1; }
+    .cd-node { fill: var(--sl-color-bg, #ffffff); stroke: var(--sl-color-gray-3, #52525b); stroke-width: 1; }
+    .cd-input { fill: color-mix(in srgb, var(--sl-color-gray-3, #52525b) 10%, var(--sl-color-bg, #ffffff)); stroke: var(--sl-color-gray-4, #a1a1aa); stroke-width: 1; }
+    .cd-store { fill: color-mix(in srgb, var(--sl-color-white, #18181b) 5%, var(--sl-color-bg, #ffffff)); stroke: var(--sl-color-gray-3, #52525b); stroke-width: 1; }
+    .cd-accent { fill: var(--sl-color-accent-low, #eef0fe); stroke: var(--sl-color-accent, #6366f1); stroke-width: 1; }
+    .cd-arrow-accent { stroke: var(--sl-color-accent, #6366f1); stroke-width: 1.2; }
+    .cd-arrow-accent-head { fill: var(--sl-color-accent, #6366f1); }
+    .cd-track { stroke: var(--sl-color-gray-4, #a1a1aa); stroke-width: 1; }
+    .cd-guide { stroke: var(--sl-color-gray-4, #a1a1aa); stroke-width: 1; stroke-dasharray: 2 4; }
+    .cd-dot { fill: var(--sl-color-gray-3, #52525b); }
+    .cd-accent-text { fill: var(--sl-color-text-accent, #6366f1); }
+    .cd-orange { fill: color-mix(in srgb, var(--course-orange, #c2410c) 12%, var(--sl-color-bg, #ffffff)); stroke: var(--course-orange, #c2410c); stroke-width: 1; }
+    .cd-orange-text { fill: var(--course-orange, #c2410c); }
+    .cd-teal { fill: color-mix(in srgb, var(--course-teal, #0f766e) 12%, var(--sl-color-bg, #ffffff)); stroke: var(--course-teal, #0f766e); stroke-width: 1; }
+    .cd-teal-text { fill: var(--course-teal, #0f766e); }
+  </style>
+<defs>
+<marker id="consumer-group-rebalance-arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon class="cd-arrow-head" points="0 0, 8 3, 0 6"></polygon></marker>
+</defs>
+<line class="cd-guide" x1="232" y1="28" x2="232" y2="228"></line>
+<line class="cd-guide" x1="296" y1="28" x2="296" y2="228"></line>
+<text class="cd-name" x="16" y="52">Partition 0</text>
+<text class="cd-sub" x="16" y="70">acme, delta</text>
+<line class="cd-track" x1="200" y1="60" x2="368" y2="60"></line>
+<rect class="cd-store" x="200" y="52" width="32" height="16" rx="4"></rect>
+<text class="cd-code" x="216" y="64" text-anchor="middle">A</text>
+<rect class="cd-accent" x="296" y="52" width="72" height="16" rx="4"></rect>
+<text class="cd-code" x="332" y="64" text-anchor="middle">B</text>
+<text class="cd-sub" x="264" y="44" text-anchor="middle">no reader</text>
+<text class="cd-name" x="16" y="116">Partition 1</text>
+<text class="cd-sub" x="16" y="134">beta</text>
+<line class="cd-track" x1="200" y1="124" x2="368" y2="124"></line>
+<rect class="cd-store" x="200" y="116" width="168" height="16" rx="4"></rect>
+<text class="cd-code" x="284" y="128" text-anchor="middle">B</text>
+<text class="cd-name" x="16" y="180">Partition 2</text>
+<text class="cd-sub" x="16" y="198">gamma</text>
+<line class="cd-track" x1="200" y1="188" x2="368" y2="188"></line>
+<rect class="cd-store" x="200" y="180" width="168" height="16" rx="4"></rect>
+<text class="cd-code" x="284" y="192" text-anchor="middle">C</text>
+<line class="cd-arrow" x1="200" y1="236" x2="364" y2="236" marker-end="url(#consumer-group-rebalance-arrow)"></line>
+<text class="cd-code" x="232" y="252" text-anchor="middle">11:00</text>
+<text class="cd-code" x="296" y="252" text-anchor="middle">11:00:45</text>
+<text class="cd-label" x="368" y="272" text-anchor="end">TIME</text>
+</svg>
+</figure>
+<div class="sl-heading-wrapper level-h2"><h2 id="committed-offsets">Committed offsets</h2><a class="sl-anchor-link" href="#committed-offsets"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 1 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 0 0-1.42-1.42m8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 1 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 0 0 0 1.42 1 1 0 0 0 1.42 0l3.88-3.89a4.49 4.49 0 0 0 0-6.33M8.83 15.17a1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.92-4.92a1 1 0 1 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42"></path></svg></span><span class="sr-only" data-pagefind-ignore="">Section titled “Committed offsets”</span></a></div>
+<p>B now needs a place in partition 0 to start from. A’s position lived in A’s
+memory and is gone. For this reason, the group stores its progress in Kafka:
+for each partition, the offset of the next record to read. Writing this offset
+to Kafka is called a commit, and the stored value is the <strong>committed
+offset</strong>.<sup><a href="https://kafka.apache.org/44/javadoc/org/apache/kafka/clients/consumer/KafkaConsumer.html" id="user-content-fnref-1-3" data-footnote-ref="" title="Apache Kafka 4.4: KafkaConsumer, Consumer Groups and Topic Subscriptions; Offsets and Consumer Position; Storing Offsets Outside Kafka" target="_blank" rel="noopener noreferrer">1</a></sup> B starts reading partition 0 from the offset that A committed
+last.</p>
+<p>When to commit decides which failure is possible. A consumer that commits
+before processing the records may lose them: if it fails in between, the new
+owner starts after records that nobody processed. A consumer that commits
+after processing may process them twice: if it fails in between, the new owner
+reads them again.<sup><a href="https://kafka.apache.org/44/design/design/" id="user-content-fnref-4" data-footnote-ref="" title="Apache Kafka 4.4: Design, Message Delivery Semantics" target="_blank" rel="noopener noreferrer">4</a></sup> These are the
+<a href="/en/course/reliability/when-an-event-arrives-twice-or-never/" data-course-link="">at-most-once and at-least-once</a>
+guarantees, now on the stretch between the log and the processor.</p>
+<p>By default, the Java client commits automatically, every five seconds, the
+offsets of the records that <code dir="auto">poll</code> has returned.<sup><a href="https://kafka.apache.org/44/configuration/consumer-configs/" id="user-content-fnref-3-3" data-footnote-ref="" title="Apache Kafka 4.4: Consumer Configs" target="_blank" rel="noopener noreferrer">3</a></sup> That suits a consumer that
+finishes each batch before asking for the next one. A consumer that hands
+records to other threads and polls again can commit offsets for records that
+are still being processed, and a failure then loses them.<sup><a href="https://kafka.apache.org/44/javadoc/org/apache/kafka/clients/consumer/KafkaConsumer.html" id="user-content-fnref-1-4" data-footnote-ref="" title="Apache Kafka 4.4: KafkaConsumer, Consumer Groups and Topic Subscriptions; Offsets and Consumer Position; Storing Offsets Outside Kafka" target="_blank" rel="noopener noreferrer">1</a></sup></p>
+<div class="sl-heading-wrapper level-h2"><h2 id="an-offset-without-the-state">An offset without the state</h2><a class="sl-anchor-link" href="#an-offset-without-the-state"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 1 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 0 0-1.42-1.42m8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 1 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 0 0 0 1.42 1 1 0 0 0 1.42 0l3.88-3.89a4.49 4.49 0 0 0 0-6.33M8.83 15.17a1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.92-4.92a1 1 0 1 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42"></path></svg></span><span class="sr-only" data-pagefind-ignore="">Section titled “An offset without the state”</span></a></div>
+<p>Suppose A committed offset 4 before it failed: it had counted the records at
+offsets 0 to 3, and <code dir="auto">acme</code>’s total in its memory was 1,400 tokens. B starts at
+offset 4 and reads <code dir="auto">u-103</code>, 600 tokens. But B has no state for <code dir="auto">acme</code>, so its
+total for the account is 600, not 2,000. The committed offset carried A’s
+position to B. A’s total was in A’s memory and failed with it.</p>
+<p>A committed offset is <a href="/en/course/reliability/what-must-survive-a-restart/" data-course-link="">reading progress</a>
+and nothing more. The new owner of a partition also needs the state that
+matches that offset: the state that includes exactly the records before it, as
+in a <a href="/en/course/reliability/recovering-a-consistent-computation/" data-course-link="">consistent checkpoint</a>.
+Kafka’s consumer cannot provide this, because it does not know what the
+processor keeps in memory.</p>
+<p>There are two common ways to keep the offset and the state together. The
+processor can store the offset with its results, for example in the same
+database transaction, and start from that stored offset instead of the
+committed one.<sup><a href="https://kafka.apache.org/44/javadoc/org/apache/kafka/clients/consumer/KafkaConsumer.html" id="user-content-fnref-1-5" data-footnote-ref="" title="Apache Kafka 4.4: KafkaConsumer, Consumer Groups and Topic Subscriptions; Offsets and Consumer Position; Storing Offsets Outside Kafka" target="_blank" rel="noopener noreferrer">1</a></sup> Or it can keep the offsets in its own checkpoints, next to
+its state. Flink does the latter: its Kafka source restores offsets from the
+checkpoint, does not rely on committed offsets for recovery, and commits them
+only so that others can see its progress.<sup><a href="https://nightlies.apache.org/flink/flink-docs-release-2.3/docs/connectors/datastream/kafka/#consumer-offset-committing" id="user-content-fnref-5" data-footnote-ref="" title="Apache Flink 2.3: Kafka Source, Consumer Offset Committing" target="_blank" rel="noopener noreferrer">5</a></sup> In this example, the saved state is from before the copy at offset 3.
+Either way, B restores <code dir="auto">acme</code>
+with 1,400 tokens and offset 3, recognizes the copy of <code dir="auto">u-102</code>, counts <code dir="auto">u-103</code>,
+and reaches 2,000.</p>
+<figure class="course-diagram">
+<svg viewBox="0 0 384 204" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="offset-and-matching-state-title offset-and-matching-state-desc">
+<title id="offset-and-matching-state-title">An offset without the state</title>
+<desc id="offset-and-matching-state-desc">Starting at offset 4 with no state gives acme only 600 tokens; restoring 1,400 with offset 3 skips the duplicate and reaches 2,000.</desc>
+  <style>
+    .cd-paper { fill: var(--sl-color-bg, #ffffff); }
+    .cd-name { fill: var(--sl-color-white, #18181b); font: 600 14px var(--sl-font, system-ui, sans-serif); }
+    .cd-sub { fill: var(--sl-color-gray-3, #52525b); font: 12px var(--sl-font, system-ui, sans-serif); }
+    .cd-code { fill: var(--sl-color-gray-3, #52525b); font: 12px var(--sl-font-mono, ui-monospace, monospace); }
+    .cd-label { fill: var(--sl-color-gray-3, #52525b); font: 11px var(--sl-font-mono, ui-monospace, monospace); letter-spacing: 0.06em; }
+    .cd-zone-label { fill: var(--sl-color-text-accent, #6366f1); font: 600 11px var(--sl-font-mono, ui-monospace, monospace); letter-spacing: 0.14em; }
+    .cd-arrow { stroke: var(--sl-color-gray-3, #52525b); stroke-width: 1.2; }
+    .cd-arrow-head { fill: var(--sl-color-gray-3, #52525b); }
+    .cd-zone { fill: var(--sl-color-accent-low, #eef0fe); stroke: var(--sl-color-accent, #6366f1); stroke-width: 1; }
+    .cd-node { fill: var(--sl-color-bg, #ffffff); stroke: var(--sl-color-gray-3, #52525b); stroke-width: 1; }
+    .cd-input { fill: color-mix(in srgb, var(--sl-color-gray-3, #52525b) 10%, var(--sl-color-bg, #ffffff)); stroke: var(--sl-color-gray-4, #a1a1aa); stroke-width: 1; }
+    .cd-store { fill: color-mix(in srgb, var(--sl-color-white, #18181b) 5%, var(--sl-color-bg, #ffffff)); stroke: var(--sl-color-gray-3, #52525b); stroke-width: 1; }
+    .cd-accent { fill: var(--sl-color-accent-low, #eef0fe); stroke: var(--sl-color-accent, #6366f1); stroke-width: 1; }
+    .cd-arrow-accent { stroke: var(--sl-color-accent, #6366f1); stroke-width: 1.2; }
+    .cd-arrow-accent-head { fill: var(--sl-color-accent, #6366f1); }
+    .cd-track { stroke: var(--sl-color-gray-4, #a1a1aa); stroke-width: 1; }
+    .cd-guide { stroke: var(--sl-color-gray-4, #a1a1aa); stroke-width: 1; stroke-dasharray: 2 4; }
+    .cd-dot { fill: var(--sl-color-gray-3, #52525b); }
+    .cd-accent-text { fill: var(--sl-color-text-accent, #6366f1); }
+    .cd-orange { fill: color-mix(in srgb, var(--course-orange, #c2410c) 12%, var(--sl-color-bg, #ffffff)); stroke: var(--course-orange, #c2410c); stroke-width: 1; }
+    .cd-orange-text { fill: var(--course-orange, #c2410c); }
+    .cd-teal { fill: color-mix(in srgb, var(--course-teal, #0f766e) 12%, var(--sl-color-bg, #ffffff)); stroke: var(--course-teal, #0f766e); stroke-width: 1; }
+    .cd-teal-text { fill: var(--course-teal, #0f766e); }
+  </style>
+<defs>
+<marker id="offset-and-matching-state-arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon class="cd-arrow-head" points="0 0, 8 3, 0 6"></polygon></marker>
+</defs>
+<text class="cd-label" x="48" y="20">OFFSET ALONE</text>
+<rect class="cd-node" x="48" y="32" width="128" height="56" rx="6"></rect>
+<text class="cd-name" x="112" y="56" text-anchor="middle">Start at 4</text>
+<text class="cd-code" x="112" y="74" text-anchor="middle">acme: 0</text>
+<line class="cd-arrow" x1="176" y1="60" x2="208" y2="60" marker-end="url(#offset-and-matching-state-arrow)"></line>
+<rect class="cd-node" x="208" y="32" width="128" height="56" rx="6"></rect>
+<text class="cd-code" x="272" y="56" text-anchor="middle">u-103: +600</text>
+<text class="cd-code" x="272" y="74" text-anchor="middle">acme: 600</text>
+<text class="cd-label" x="48" y="124">STATE + OFFSET</text>
+<rect class="cd-accent" x="48" y="136" width="128" height="56" rx="6"></rect>
+<text class="cd-name" x="112" y="160" text-anchor="middle">Start at 3</text>
+<text class="cd-code" x="112" y="178" text-anchor="middle">acme: 1,400</text>
+<line class="cd-arrow" x1="176" y1="164" x2="208" y2="164" marker-end="url(#offset-and-matching-state-arrow)"></line>
+<rect class="cd-store" x="208" y="136" width="128" height="56" rx="6"></rect>
+<text class="cd-name" x="272" y="160" text-anchor="middle">Skip copy</text>
+<text class="cd-code" x="272" y="178" text-anchor="middle">u-103 → 2,000</text>
+</svg>
+</figure>
+<div class="sl-heading-wrapper level-h2"><h2 id="independent-readers">Independent readers</h2><a class="sl-anchor-link" href="#independent-readers"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 1 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 0 0-1.42-1.42m8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 1 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 0 0 0 1.42 1 1 0 0 0 1.42 0l3.88-3.89a4.49 4.49 0 0 0 0-6.33M8.83 15.17a1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.92-4.92a1 1 0 1 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42"></path></svg></span><span class="sr-only" data-pagefind-ignore="">Section titled “Independent readers”</span></a></div>
+<p>The finance team starts its own consumer with its own group, <code dir="auto">finance-check</code>.
+Kafka keeps committed offsets for each group separately, so the two groups
+read the same partitions without affecting each other. On the evening of
+February 5, their offsets look like this:</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Group</th><th>Partition 0</th><th>Partition 1</th><th>Partition 2</th></tr></thead><tbody><tr><td><code dir="auto">usage-totals</code></td><td>251,408,377</td><td>248,915,102</td><td>250,301,977</td></tr><tr><td><code dir="auto">finance-check</code></td><td>64,120,550</td><td>63,498,331</td><td>63,905,720</td></tr></tbody></table>
+<p>The usage processors are near the newest records. The finance reader, which
+started from the earliest records, is far behind and moves at its own pace.
+Neither group’s progress deletes anything.</p>
+<p>A new group has no committed offsets yet. By default, its consumers start at
+the end of each partition and read only records that arrive after they
+connect.<sup><a href="https://kafka.apache.org/44/configuration/consumer-configs/" id="user-content-fnref-3-4" data-footnote-ref="" title="Apache Kafka 4.4: Consumer Configs" target="_blank" rel="noopener noreferrer">3</a></sup> The finance reader needs the opposite, so it is configured to
+start from the earliest available offset.</p>
+<div class="sl-heading-wrapper level-h2"><h2 id="replay-on-purpose">Replay on purpose</h2><a class="sl-anchor-link" href="#replay-on-purpose"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 1 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 0 0-1.42-1.42m8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 1 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 0 0 0 1.42 1 1 0 0 0 1.42 0l3.88-3.89a4.49 4.49 0 0 0 0-6.33M8.83 15.17a1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.92-4.92a1 1 0 1 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42"></path></svg></span><span class="sr-only" data-pagefind-ignore="">Section titled “Replay on purpose”</span></a></div>
+<p>On February 10, the team finds a bug. Since the
+<a href="/en/course/reliability/what-must-survive-a-restart/" data-course-link="">update at 06:05 on February 2</a>,
+the processor has also counted records with <code dir="auto">status</code> <code dir="auto">failed</code>: requests that
+ended in an error, which customers do not pay for. The records carry the
+status, so a fixed processor can tell them apart. After the fix, everything
+since the update must be counted again.</p>
+<p>The replay has to start from a state and offsets that match. The last
+checkpoint before the update, from 06:01, holds both: the totals and the lists
+of counted IDs, and for each partition the offset up to which they are
+counted. The processor restores that checkpoint, if it is still kept, and
+reads each partition from the checkpoint’s offset. A processor that keeps
+offsets in its checkpoints, as Flink does, does this by itself. For our group,
+we stop all <code dir="auto">usage-totals</code> consumers and restore their state. While the group
+is inactive, we reset its offsets with Kafka’s command-line tool, from a file
+that lists the topic, partition, and offset for each partition:<sup><a href="https://kafka.apache.org/44/operations/basic-kafka-operations/" id="user-content-fnref-6" data-footnote-ref="" title="Apache Kafka 4.4: Basic Kafka Operations, Managing consumer groups" target="_blank" rel="noopener noreferrer">6</a></sup></p>
+<div class="expressive-code"><link rel="stylesheet" href="/_astro/ec.w36nc.css"><script type="module" src="/_astro/ec.0vx5m.js"></script><figure class="frame not-content"><figcaption class="header"></figcaption><pre data-language="sh"><code><div class="ec-line"><div class="code"><span style="--0:#82AAFF;--1:#3B61B0">kafka-consumer-groups.sh</span><span style="--0:#D6DEEB;--1:#403F53"> </span><span style="--0:#82AAFF;--1:#3B61B0">--bootstrap-server</span><span style="--0:#D6DEEB;--1:#403F53"> </span><span style="--0:#ECC48D;--1:#3B61B0">broker-1:9092</span><span style="--0:#D6DEEB;--1:#403F53"> </span><span style="--0:#F78C6C;--1:#AA0982">\</span></div></div><div class="ec-line"><div class="code"><span class="indent">  </span><span style="--0:#82AAFF;--1:#3B61B0">--group</span><span style="--0:#D6DEEB;--1:#403F53"> </span><span style="--0:#ECC48D;--1:#3B61B0">usage-totals</span><span style="--0:#D6DEEB;--1:#403F53"> </span><span style="--0:#82AAFF;--1:#3B61B0">--reset-offsets</span><span style="--0:#D6DEEB;--1:#403F53"> </span><span style="--0:#82AAFF;--1:#3B61B0">--from-file</span><span style="--0:#D6DEEB;--1:#403F53"> </span><span style="--0:#ECC48D;--1:#3B61B0">checkpoint-0601.csv</span><span style="--0:#D6DEEB;--1:#403F53"> </span><span style="--0:#82AAFF;--1:#3B61B0">--execute</span></div></div></code></pre><div class="copy"><div aria-live="polite"></div><button title="Copy to clipboard" data-copied="Copied!" data-code="kafka-consumer-groups.sh --bootstrap-server broker-1:9092 \  --group usage-totals --reset-offsets --from-file checkpoint-0601.csv --execute"><div></div></button></div></figure></div>
+<p>Then we start the consumers with the fixed code and the restored state.</p>
+<p>The same tool can move offsets to a time instead. It then finds the first
+records whose timestamps are after that time, and a timestamp says nothing
+about which records a checkpoint included. If at 06:05 the processor was
+<a href="/en/course/distribution/a-queue-or-a-log/" data-course-link="">20 minutes behind</a>, as it is at the morning peak, its
+state ended at records written around 05:45. A reset by time suits a reader that has no state to
+match.</p>
+<p>Without a checkpoint from before the update, the totals have to be counted
+from the first record of the month. If the current totals stayed, every
+request since the update would be added a second time, and a
+<a href="/en/course/reliability/when-an-event-arrives-twice-or-never/" data-course-link="">list of IDs</a> kept for
+24 hours would not recognize records from last week.</p>
+<p>The receivers need a rule for the recomputed results too. The usage page
+keeps the <a href="/en/course/reliability/one-result-one-external-effect/" data-course-link="">highest version</a>
+of each total, and a version is the position of the last record the total
+includes. The recomputed totals carry the same positions as the old ones, so
+the page would reject them as old. The recomputation needs versions of its
+own, for example a run number placed before the position, so that every total
+of the second run is newer than any total of the first. The billing system,
+which treats a known usage ID with a different token count as an error, needs
+an explicit correction. Replay recomputes the results; what a recomputed
+result means is up to each receiver.</p>
+<p>Replay also needs the records themselves. By default, Kafka keeps the records
+of a topic for seven days.<sup><a href="https://kafka.apache.org/44/configuration/topic-configs/" id="user-content-fnref-7" data-footnote-ref="" title="Apache Kafka 4.4: Topic Configs, retention.ms" target="_blank" rel="noopener noreferrer">7</a></sup> By February 10, eight days have passed since
+the bug appeared. With the default retention, the segments holding the start
+of that period may already be deleted. The log would then lack part of the
+input needed to recompute the totals.</p>
+<div class="sl-heading-wrapper level-h2"><h2 id="what-to-remember">What to remember</h2><a class="sl-anchor-link" href="#what-to-remember"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 1 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 0 0-1.42-1.42m8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 1 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 0 0 0 1.42 1 1 0 0 0 1.42 0l3.88-3.89a4.49 4.49 0 0 0 0-6.33M8.83 15.17a1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.92-4.92a1 1 0 1 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42"></path></svg></span><span class="sr-only" data-pagefind-ignore="">Section titled “What to remember”</span></a></div>
+<ul>
+<li>A consumer group shares a topic’s partitions: each partition goes to one
+consumer of the group. When a consumer fails or joins, a rebalance moves
+partitions.</li>
+<li>The committed offset is the group’s progress, stored in Kafka. Committing
+before processing risks loss, committing after it risks repeats.</li>
+<li>A committed offset carries no state. The new owner of a partition needs
+state that matches the offset, so offsets are kept with the state or with
+the results.</li>
+<li>Different groups read the same topic independently. Replay starts from the
+offsets of a checkpoint together with its state, and receivers need a rule
+for recomputed results.</li>
+</ul>
+<div class="sl-heading-wrapper level-h2"><h2 id="references">References</h2><a class="sl-anchor-link" href="#references"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 1 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 0 0-1.42-1.42m8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 1 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 0 0 0 1.42 1 1 0 0 0 1.42 0l3.88-3.89a4.49 4.49 0 0 0 0-6.33M8.83 15.17a1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.92-4.92a1 1 0 1 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42"></path></svg></span><span class="sr-only" data-pagefind-ignore="">Section titled “References”</span></a></div><section data-footnotes="" class="footnotes" aria-label="Sources"><ol>
+<li id="user-content-fn-1">
+<p><a href="https://kafka.apache.org/44/javadoc/org/apache/kafka/clients/consumer/KafkaConsumer.html" target="_blank" rel="noopener noreferrer">Apache Kafka 4.4: KafkaConsumer, Consumer Groups and Topic Subscriptions; Offsets and Consumer Position; Storing Offsets Outside Kafka</a>.    </p>
+</li>
+<li id="user-content-fn-2">
+<p><a href="https://kafka.apache.org/blog/2026/02/17/apache-kafka-4.2.0-release-announcement/" target="_blank" rel="noopener noreferrer">Apache Kafka 4.2.0 Release Announcement</a>.</p>
+</li>
+<li id="user-content-fn-3">
+<p><a href="https://kafka.apache.org/44/configuration/consumer-configs/" target="_blank" rel="noopener noreferrer">Apache Kafka 4.4: Consumer Configs</a>.   </p>
+</li>
+<li id="user-content-fn-4">
+<p><a href="https://kafka.apache.org/44/design/design/" target="_blank" rel="noopener noreferrer">Apache Kafka 4.4: Design, Message Delivery Semantics</a>.</p>
+</li>
+<li id="user-content-fn-5">
+<p><a href="https://nightlies.apache.org/flink/flink-docs-release-2.3/docs/connectors/datastream/kafka/#consumer-offset-committing" target="_blank" rel="noopener noreferrer">Apache Flink 2.3: Kafka Source, Consumer Offset Committing</a>.</p>
+</li>
+<li id="user-content-fn-6">
+<p><a href="https://kafka.apache.org/44/operations/basic-kafka-operations/" target="_blank" rel="noopener noreferrer">Apache Kafka 4.4: Basic Kafka Operations, Managing consumer groups</a>.</p>
+</li>
+<li id="user-content-fn-7">
+<p><a href="https://kafka.apache.org/44/configuration/topic-configs/" target="_blank" rel="noopener noreferrer">Apache Kafka 4.4: Topic Configs, retention.ms</a>.</p>
+</li>
+</ol></section>
+<div class="sl-heading-wrapper level-h2"><h2 id="further-reading">Further reading</h2><a class="sl-anchor-link" href="#further-reading"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 1 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 0 0-1.42-1.42m8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 1 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 0 0 0 1.42 1 1 0 0 0 1.42 0l3.88-3.89a4.49 4.49 0 0 0 0-6.33M8.83 15.17a1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.92-4.92a1 1 0 1 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42"></path></svg></span><span class="sr-only" data-pagefind-ignore="">Section titled “Further reading”</span></a></div>
+<ul>
+<li>Gwen Shapira, Todd Palino, Rajini Sivaram, and Krit Petty, <em><a href="https://www.oreilly.com/library/view/kafka-the-definitive/9781492043072/">Kafka: The Definitive Guide</a></em>,
+2nd ed. (O’Reilly Media, 2021), chap. 4, “Kafka Consumers: Reading Data from
+Kafka.” Goes through consumer groups and rebalances, automatic and manual
+commits, and how a consumer starts from a specific offset.</li>
+</ul>
+</div><div class="course-progress-row"><button type="button" class="course-progress-toggle" role="switch" aria-checked="false" data-course-progress-toggle hidden><span class="course-progress" data-state="seen" aria-hidden="true"></span>Mark as read</button></div><footer class="sl-flex astro-ddtxxk7k"><div class="meta sl-flex astro-ddtxxk7k"></div><nav class="course-pagination" aria-label="Article navigation"><a href="/en/course/distribution/topics-partitions-and-offsets-in-kafka/" rel="prev"><span class="pagination-direction">← Previous</span><span class="pagination-title">Topics, partitions, and offsets in Kafka</span><span class="pagination-section">Distributed processing and the log</span></a><a href="/en/course/distribution/how-long-does-kafka-keep-history/" rel="next"><span class="pagination-direction">Next →</span><span class="pagination-title">How long does Kafka keep history?</span><span class="pagination-section">Distributed processing and the log</span></a></nav></footer><p class="course-license astro-7g3h5dfi">© 2026 <a href="https://alexengrig.github.io" class="astro-7g3h5dfi">Grig Alex</a> · <a href="https://creativecommons.org/licenses/by-sa/4.0/" rel="license" class="astro-7g3h5dfi">CC BY-SA 4.0</a></p></div></div></main></div></div></div></div></body></html>
